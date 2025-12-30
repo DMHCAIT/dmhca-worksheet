@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { projectionsApi, projectsApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth/AuthProvider'
+import { Project } from '@/types'
 import toast from 'react-hot-toast'
 
 interface WorkProjection {
@@ -20,12 +21,6 @@ interface WorkProjection {
   created_at: string
   project?: { name: string }
   user?: { full_name: string }
-}
-
-interface Project {
-  id: number
-  name: string
-  team: string
 }
 
 export default function ProjectionsPage() {
