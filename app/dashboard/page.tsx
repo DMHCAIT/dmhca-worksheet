@@ -60,17 +60,29 @@ function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch dashboard stats
-      const statsData = await reportsApi.getDashboard()
+      // Fetch all tasks and get recent ones
+      const allTasks = await tasksApi.getAll()
+      const sortedTasks = allTasks
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 5)
+      setRecentTasks(sortedTasks as any)
+
+      // Fetch all projects
+      const allProjects = await projectsApi.getAll()
+      setProjectProgress(allProjects as any)
+
+      // Calculate dashboard stats from tasks
+      const statsData = {
+        totalTasks: allTasks.length,
+        completedTasks: allTasks.filter(t => t.status === 'completed').length,
+        pendingTasks: allTasks.filter(t => t.status === 'pending').length,
+        inProgressTasks: allTasks.filter(t => t.status === 'in_progress').length,
+        highPriorityTasks: allTasks.filter(t => t.priority === 'high').length,
+        completionRate: allTasks.length > 0 
+          ? Math.round((allTasks.filter(t => t.status === 'completed').length / allTasks.length) * 100)
+          : 0
+      }
       setStats(statsData)
-
-      // Fetch recent tasks
-      const tasksData = await tasksApi.getTasks({ limit: 5, sort: 'created_at', order: 'desc' })
-      setRecentTasks(tasksData.tasks || [])
-
-      // Fetch project progress
-      const projectsData = await projectsApi.getProjects()
-      setProjectProgress(projectsData.projects || [])
 
       // Generate mock activities (since we don't have an activities API)
       const mockActivities = [
