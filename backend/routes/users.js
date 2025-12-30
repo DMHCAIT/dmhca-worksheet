@@ -47,7 +47,7 @@ router.get('/', authMiddleware, requireRole('admin', 'team_lead'), async (req, r
 router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
   try {
     console.log('👤 POST /api/users - Creating new user:', req.body);
-    const { email, full_name, password, role, team, phone } = req.body;
+    const { email, full_name, password, role, team } = req.body;
 
     // Validate required fields
     if (!email || !full_name || !password || !team) {
@@ -78,10 +78,9 @@ router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
         full_name,
         password_hash,
         role: role || 'employee',
-        team,
-        phone: phone || null
+        team
       })
-      .select('id, email, full_name, role, team, phone, created_at')
+      .select('id, email, full_name, role, team, created_at')
       .single();
 
     if (profileError) {
@@ -115,7 +114,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
     const { data: user, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name, role, team, phone, avatar_url, created_at')
+      .select('id, email, full_name, role, team, avatar_url, created_at')
       .eq('id', id)
       .single();
 
@@ -143,14 +142,14 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, team, role, phone } = req.body;
+    const { full_name, team, role } = req.body;
 
     // Users can only update their own profile, unless they're admin
     if (req.user.id !== id && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const updateData = { full_name, phone };
+    const updateData = { full_name };
 
     // Only admin can change role and team
     if (req.user.role === 'admin') {
@@ -162,7 +161,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
       .from('profiles')
       .update(updateData)
       .eq('id', id)
-      .select('id, email, full_name, role, team, phone, avatar_url')
+      .select('id, email, full_name, role, team, avatar_url')
       .single();
 
     if (error) {
