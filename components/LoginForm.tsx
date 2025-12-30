@@ -144,15 +144,11 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
                       onChange={handleChange}
                       className="appearance-none relative block w-full px-3 py-2 pl-10 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     >
-                      <option value="">Select your team</option>
-                      <option value="development">Development</option>
-                      <option value="design">Design</option>
-                      <option value="marketing">Marketing</option>
+                      <option value="">Select your department</option>
+                      <option value="admin">Admin</option>
+                      <option value="digital marketing">Digital Marketing</option>
                       <option value="sales">Sales</option>
-                      <option value="support">Support</option>
-                      <option value="management">Management</option>
-                      <option value="hr">Human Resources</option>
-                      <option value="finance">Finance</option>
+                      <option value="it">IT</option>
                     </select>
                     <Building className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
                   </div>

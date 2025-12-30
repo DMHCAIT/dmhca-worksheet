@@ -200,12 +200,17 @@ function TeamContent() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Department
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={newUser.department}
                     onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
                     className="input"
-                  />
+                  >
+                    <option value="">Select department</option>
+                    <option value="admin">Admin</option>
+                    <option value="digital marketing">Digital Marketing</option>
+                    <option value="sales">Sales</option>
+                    <option value="it">IT</option>
+                  </select>
                 </div>
 
                 <div>
