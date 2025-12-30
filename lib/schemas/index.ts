@@ -8,8 +8,8 @@ export const userSchema = z.object({
   role: z.enum(['admin', 'team_lead', 'employee']),
   department: z.string().optional(),
   phone: z.string().optional(),
-  created_at: z.string(),
-  updated_at: z.string(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
 })
 
 export const createUserSchema = z.object({

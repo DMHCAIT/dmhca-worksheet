@@ -13,7 +13,7 @@ router.get('/', authMiddleware, requireRole('admin', 'team_lead'), async (req, r
     
     let query = supabase
       .from('profiles')
-      .select('id, email, full_name, role, team, avatar_url, created_at');
+      .select('id, email, full_name, role, team, avatar_url, created_at, updated_at');
 
     // Team leads can only see their team members
     if (req.user.role === 'team_lead') {

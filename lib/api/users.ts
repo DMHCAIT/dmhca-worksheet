@@ -9,25 +9,54 @@ import { usersResponseSchema, userResponseSchema } from '@/lib/schemas'
 
 export const usersApi = {
   async getAll(): Promise<User[]> {
-    const response = await apiClient.get<ApiResponse<User[]>>('/users')
+    const response = await apiClient.get<ApiResponse<any[]>>('/users')
     const validated = usersResponseSchema.parse(response.data)
-    return validated.data
+    // Map team to department for frontend compatibility
+    return validated.data.map((user: any) => ({
+      ...user,
+      department: user.team || user.department
+    }))
   },
 
   async getById(id: string): Promise<User> {
-    const response = await apiClient.get<ApiResponse<User>>(`/users/${id}`)
+    const response = await apiClient.get<ApiResponse<any>>(`/users/${id}`)
     const validated = userResponseSchema.parse(response.data)
-    return validated.data
+    // Map team to department for frontend compatibility
+    return {
+      ...validated.data,
+      department: (validated.data as any).team || validated.data.department
+    } as User
   },
 
   async create(data: CreateUserRequest): Promise<User> {
-    const response = await apiClient.post<ApiResponse<User>>('/users', data)
+    // Map department to team for backend compatibility
+    const backendData = {
+      ...data,
+      team: data.department || 'general'
+    }
+    const response = await apiClient.post<ApiResponse<any>>('/users', backendData)
     const validated = userResponseSchema.parse(response.data)
-    return validated.data
+    // Map team to department for frontend compatibility
+    return {
+      ...validated.data,
+      department: (validated.data as any).team || validated.data.department
+    } as User
   },
 
   async update(id: string, data: UpdateUserRequest): Promise<User> {
-    const response = await apiClient.put<ApiResponse<User>>(`/users/${id}`, data)
+    // Map department to team for backend compatibility
+    const backendData = data.department ? {
+      ...data,
+      team: data.department
+    } : data
+    const response = await apiClient.put<ApiResponse<any>>(`/users/${id}`, backendData)
+    const validated = userResponseSchema.parse(response.data)
+    // Map team to department for frontend compatibility
+    return {
+      ...validated.data,
+      department: (validated.data as any).team || validated.data.department
+    } as User
+  },
     const validated = userResponseSchema.parse(response.data)
     return validated.data
   },
