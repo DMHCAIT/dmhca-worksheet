@@ -22,6 +22,7 @@ function TasksContent() {
   const [filterStatus, setFilterStatus] = useState<string>('')
   const [newComment, setNewComment] = useState('')
   const [uploadingFile, setUploadingFile] = useState(false)
+  const [previewFile, setPreviewFile] = useState<{ url: string; name: string; type: string } | null>(null)
   const [taskDetails, setTaskDetails] = useState<{ comments: TaskComment[], attachments: TaskAttachment[] }>({ comments: [], attachments: [] })
   
   const [newTask, setNewTask] = useState<CreateTaskRequest>({
@@ -204,6 +205,28 @@ function TasksContent() {
     } catch (error) {
       toast.error('Failed to delete attachment')
     }
+  }
+
+  const handleViewAttachment = (attachment: TaskAttachment) => {
+    const fileExtension = attachment.file_name.split('.').pop()?.toLowerCase()
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp']
+    const isImage = imageExtensions.includes(fileExtension || '')
+
+    setPreviewFile({
+      url: attachment.file_url,
+      name: attachment.file_name,
+      type: isImage ? 'image' : 'file'
+    })
+  }
+
+  const handleDownloadAttachment = (url: string, filename: string) => {
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.target = '_blank'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   const clearFilters = () => {
@@ -623,22 +646,40 @@ function TasksContent() {
               {taskDetails.attachments.length > 0 ? (
                 <div className="space-y-2">
                   {taskDetails.attachments.map((att) => (
-                    <div key={att.id} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                      <div>
-                        <p className="font-medium text-sm">{att.file_name}</p>
+                    <div key={att.id} className="flex justify-between items-center p-3 bg-gray-50 rounded hover:bg-gray-100 transition-colors">
+                      <div 
+                        className="flex-1 cursor-pointer"
+                        onClick={() => handleViewAttachment(att)}
+                      >
+                        <p className="font-medium text-sm text-blue-600 hover:text-blue-800">{att.file_name}</p>
                         <p className="text-xs text-gray-500">
                           Uploaded by {(att as any).uploader?.full_name} • {new Date(att.created_at).toLocaleDateString()}
                           {att.file_size && ` • ${(att.file_size / 1024).toFixed(1)} KB`}
                         </p>
                       </div>
-                      {(user?.role === 'admin' || att.uploaded_by === user?.id) && (
+                      <div className="flex gap-2">
                         <button
-                          onClick={() => handleDeleteAttachment(att.id)}
-                          className="text-red-600 hover:text-red-800 text-sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDownloadAttachment(att.file_url, att.file_name)
+                          }}
+                          className="text-blue-600 hover:text-blue-800 text-sm px-2"
+                          title="Download"
                         >
-                          Delete
+                          ⬇️
                         </button>
-                      )}
+                        {(user?.role === 'admin' || att.uploaded_by === user?.id) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteAttachment(att.id)
+                            }}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -839,6 +880,50 @@ function TasksContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
+            <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
+              <h3 className="text-lg font-semibold">{previewFile.name}</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleDownloadAttachment(previewFile.url, previewFile.name)}
+                  className="btn btn-secondary text-sm"
+                >
+                  ⬇️ Download
+                </button>
+                <button
+                  onClick={() => setPreviewFile(null)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl px-2"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div className="p-4">
+              {previewFile.type === 'image' ? (
+                <img 
+                  src={previewFile.url} 
+                  alt={previewFile.name}
+                  className="max-w-full h-auto mx-auto"
+                />
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-600 mb-4">Preview not available for this file type</p>
+                  <button
+                    onClick={() => handleDownloadAttachment(previewFile.url, previewFile.name)}
+                    className="btn btn-primary"
+                  >
+                    Download File
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
