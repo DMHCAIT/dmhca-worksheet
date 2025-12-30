@@ -11,7 +11,12 @@ export const authApi = {
     // Store token in both localStorage and cookies
     if (validated.token) {
       localStorage.setItem('authToken', validated.token)
-      localStorage.setItem('user', JSON.stringify(validated.user))
+      // Map team to department for frontend compatibility
+      const userWithDepartment = {
+        ...validated.user,
+        department: (validated.user as any).team || (validated.user as any).department
+      }
+      localStorage.setItem('user', JSON.stringify(userWithDepartment))
       Cookies.set('authToken', validated.token, { expires: 7, secure: true, sameSite: 'strict' })
     }
     
@@ -19,13 +24,23 @@ export const authApi = {
   },
 
   async register(data: RegisterRequest): Promise<LoginResponse> {
-    const response = await apiClient.post<LoginResponse>('/auth/register', data)
+    // Map department to team for backend compatibility
+    const backendData = {
+      ...data,
+      team: data.department || 'general'
+    }
+    const response = await apiClient.post<LoginResponse>('/auth/register', backendData)
     const validated = loginResponseSchema.parse(response.data)
     
     // Store token in both localStorage and cookies
     if (validated.token) {
       localStorage.setItem('authToken', validated.token)
-      localStorage.setItem('user', JSON.stringify(validated.user))
+      // Map team to department for frontend compatibility
+      const userWithDepartment = {
+        ...validated.user,
+        department: (validated.user as any).team || (validated.user as any).department
+      }
+      localStorage.setItem('user', JSON.stringify(userWithDepartment))
       Cookies.set('authToken', validated.token, { expires: 7, secure: true, sameSite: 'strict' })
     }
     

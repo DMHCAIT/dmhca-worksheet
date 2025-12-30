@@ -92,6 +92,7 @@ router.post('/register', async (req, res) => {
     );
 
     res.status(201).json({
+      success: true,
       message: 'User created successfully',
       user: profile,
       token
@@ -150,6 +151,7 @@ router.post('/login', async (req, res) => {
     );
 
     res.json({
+      success: true,
       message: 'Login successful',
       token,
       user: {
