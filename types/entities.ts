@@ -19,13 +19,15 @@ export interface User {
 export interface Project {
   id: number
   name: string
-  description: string
-  status: ProjectStatus
-  start_date: string
+  description?: string
+  status?: ProjectStatus
+  start_date?: string
   end_date?: string | null
-  created_by: string
-  created_at: string
-  updated_at: string
+  deadline?: string | null
+  team?: string
+  created_by?: string
+  created_at?: string
+  updated_at?: string
   creator_name?: string
 }
 

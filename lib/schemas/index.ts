@@ -25,13 +25,15 @@ export const createUserSchema = z.object({
 export const projectSchema = z.object({
   id: z.number(),
   name: z.string(),
-  description: z.string(),
-  status: z.enum(['active', 'completed', 'on_hold']),
-  start_date: z.string(),
+  description: z.string().optional(),
+  status: z.enum(['active', 'completed', 'on_hold']).optional(),
+  start_date: z.string().optional(),
   end_date: z.string().nullable().optional(),
-  created_by: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
+  deadline: z.string().nullable().optional(),
+  team: z.string().optional(),
+  created_by: z.string().optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
   creator_name: z.string().optional(),
 })
 
