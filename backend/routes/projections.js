@@ -26,16 +26,29 @@ router.get('/', authMiddleware, async (req, res) => {
 
     if (error) {
       console.error('❌ Supabase error in projections:', error);
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
     }
 
-    console.log('✅ Projections retrieved:', projections?.length || 0);
+    // Map database fields to frontend expected fields
+    const mappedProjections = (projections || []).map(p => ({
+      ...p,
+      week_start_date: p.week_start,
+      week_end_date: p.week_end,
+      estimated_hours: p.planned_hours || 0,
+      notes: p.description || p.notes
+    }));
+
+    console.log('✅ Projections retrieved:', mappedProjections.length);
     res.json({ 
       success: true,
-      data: projections || [], 
+      data: mappedProjections, 
       message: 'Projections retrieved successfully' 
     });
   } catch (error) {
+    console.error('❌ Server error in projections:', error);
     res.status(500).json({ 
       success: false,
       error: { code: 'SERVER_ERROR', message: error.message } 
