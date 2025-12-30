@@ -30,9 +30,16 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 
     console.log('✅ Projections retrieved:', projections?.length || 0);
-    res.json({ projections: projections || [] });
+    res.json({ 
+      success: true,
+      data: projections || [], 
+      message: 'Projections retrieved successfully' 
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
   }
 });
 

@@ -117,6 +117,64 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
 });
 
 // Get project statistics
+router.get('/project-stats', authMiddleware, async (req, res) => {
+  try {
+    let projectQuery = supabase
+      .from('projects')
+      .select(`
+        id,
+        name,
+        team,
+        tasks:tasks(status)
+      `);
+
+    if (req.user.role === 'team_lead') {
+      projectQuery = projectQuery.eq('team', req.user.team);
+    }
+
+    const { data: projects, error } = await projectQuery;
+
+    if (error) {
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    const projectStats = (projects || []).map(project => {
+      const tasks = project.tasks || [];
+      const totalTasks = tasks.length;
+      const completedTasks = tasks.filter(t => t.status === 'completed').length;
+      const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
+      const pendingTasks = tasks.filter(t => t.status === 'pending').length;
+      const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+      return {
+        id: project.id,
+        name: project.name,
+        team: project.team,
+        totalTasks,
+        completedTasks,
+        inProgressTasks,
+        pendingTasks,
+        progress
+      };
+    });
+
+    res.json({ 
+      success: true,
+      data: projectStats,
+      message: 'Project stats retrieved successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Get project statistics (legacy route)
 router.get('/projects', authMiddleware, async (req, res) => {
   try {
     let projectQuery = supabase
@@ -202,9 +260,16 @@ router.get('/team-performance', authMiddleware, requireRole(['admin', 'team_lead
       });
     }
 
-    res.json(teamPerformance);
+    res.json({ 
+      success: true,
+      data: teamPerformance,
+      message: 'Team performance retrieved successfully'
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
   }
 });
 
