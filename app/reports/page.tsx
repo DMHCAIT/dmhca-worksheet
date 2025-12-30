@@ -52,7 +52,7 @@ export default function ReportsPage() {
 
   const fetchDashboardStats = async () => {
     try {
-      const data = await reportsApi.getDashboardStats()
+      const data = await reportsApi.getDashboard()
       setDashboardStats(data)
     } catch (error) {
       console.error('Error fetching dashboard stats:', error)

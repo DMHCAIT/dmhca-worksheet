@@ -65,7 +65,7 @@ export function useUpdateTask() {
         queryClient.setQueryData<Task>(taskKeys.detail(id), {
           ...previousTask,
           ...data,
-        })
+        } as Task)
       }
 
       return { previousTask }

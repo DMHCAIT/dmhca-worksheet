@@ -4,17 +4,8 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { usersApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth/AuthProvider'
+import { User } from '@/types'
 import toast from 'react-hot-toast'
-
-interface UserProfile {
-  id: string
-  full_name: string
-  email: string
-  role: string
-  team: string
-  phone?: string
-  avatar_url?: string
-}
 
 interface SystemSettings {
   companyName: string
@@ -28,7 +19,7 @@ interface SystemSettings {
 }
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [profile, setProfile] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedTab, setSelectedTab] = useState('profile')
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
@@ -55,7 +46,7 @@ export default function SettingsPage() {
     if (!user?.id) return
     
     try {
-      const data = await usersApi.getUser(user.id)
+      const data = await usersApi.getById(user.id)
       setProfile(data)
     } catch (error) {
       console.error('Error fetching profile:', error)
@@ -231,11 +222,11 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Team (Read Only)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Department (Read Only)</label>
                 <input
                   type="text"
                   className="input bg-gray-100"
-                  value={profile.team.replace('_', ' ')}
+                  value={profile.department || 'Not assigned'}
                   disabled
                 />
               </div>

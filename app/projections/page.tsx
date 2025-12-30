@@ -83,7 +83,7 @@ export default function ProjectionsPage() {
       ...newProjection,
       week_end_date: weekEndDate.toISOString().split('T')[0],
       user_id: user.id,
-      team: user.team,
+      team: user.department || 'General',
       estimated_hours: parseInt(newProjection.estimated_hours)
     }
 
@@ -105,7 +105,7 @@ export default function ProjectionsPage() {
 
   const handleUpdateActualHours = async (id: number, actualHours: number) => {
     try {
-      await projectionsApi.updateProjection(id.toString(), { actual_hours: actualHours })
+      await projectionsApi.updateProjection(id, { actual_hours: actualHours })
       toast.success('Actual hours updated!')
       fetchProjections()
     } catch (error) {

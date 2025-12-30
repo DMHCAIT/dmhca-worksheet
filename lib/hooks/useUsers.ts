@@ -65,7 +65,7 @@ export function useUpdateUser() {
         queryClient.setQueryData<User>(userKeys.detail(id), {
           ...previousUser,
           ...data,
-        })
+        } as User)
       }
 
       return { previousUser }
