@@ -35,9 +35,9 @@ export interface Task {
   description: string
   status: TaskStatus
   priority: TaskPriority
-  project_id: number | null
+  project_id?: number | null
   assigned_to: string
-  deadline: string | null
+  deadline?: string | null
   created_at: string
   updated_at: string
   project_name?: string

@@ -1,26 +1,15 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { authApi } from '../api'
-import toast from 'react-hot-toast'
+import { useRouter, usePathname } from 'next/navigation'
 import Cookies from 'js-cookie'
-
-interface User {
-  id: string
-  email: string
-  full_name: string
-  role: string
-  team: string
-}
+import { User } from '@/types'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (userData: any) => Promise<void>
-  logout: () => Promise<void>
-  isAuthenticated: boolean
+  logout: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -28,7 +17,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
 
   useEffect(() => {
     checkAuthStatus()
@@ -61,69 +49,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const login = async (email: string, password: string) => {
-    try {
-      const { user, token } = await authApi.login(email, password)
-      
-      // Set both localStorage and cookie
-      localStorage.setItem('authToken', token)
-      localStorage.setItem('user', JSON.stringify(user))
-      Cookies.set('authToken', token, { expires: 7, secure: true, sameSite: 'strict' })
-      
-      setUser(user)
-      toast.success('Login successful!')
-      router.push('/dashboard')
-    } catch (error: any) {
-      const message = error.response?.data?.error || 'Login failed'
-      toast.error(message)
-      throw error
-    }
+    // Login handled by authApi in components
+    throw new Error('Use authApi.login() directly')
   }
 
-  const register = async (userData: any) => {
-    try {
-      const { user, token } = await authApi.register(userData)
-      
-      // Set both localStorage and cookie
-      localStorage.setItem('authToken', token)
-      localStorage.setItem('user', JSON.stringify(user))
-      Cookies.set('authToken', token, { expires: 7, secure: true, sameSite: 'strict' })
-      
-      setUser(user)
-      toast.success('Account created successfully!')
-      router.push('/dashboard')
-    } catch (error: any) {
-      const message = error.response?.data?.error || 'Registration failed'
-      toast.error(message)
-      throw error
-    }
-  }
-
-  const logout = async () => {
-    try {
-      await authApi.logout()
-    } catch (error) {
-      console.error('Logout error:', error)
-    } finally {
-      setUser(null)
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('user')
-      Cookies.remove('authToken')
-      toast.success('Logged out successfully')
-      router.push('/login')
-    }
-  }
-
-  const value = {
-    user,
-    loading,
-    login,
-    register,
-    logout,
-    isAuthenticated: !!user
+  const logout = () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+    Cookies.remove('authToken')
+    setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   )
@@ -137,26 +75,26 @@ export function useAuth() {
   return context
 }
 
-// Protected route wrapper
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && pathname !== '/login') {
       router.push('/login')
     }
-  }, [user, loading, router])
+  }, [user, loading, router, pathname])
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
       </div>
     )
   }
 
-  if (!user) {
+  if (!user && pathname !== '/login') {
     return null
   }
 

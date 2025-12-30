@@ -76,7 +76,7 @@ apiClient.interceptors.response.use(
       toast.error('Resource not found.')
     } else if (response?.status === 429) {
       toast.error('Too many requests. Please try again later.')
-    } else if (response?.status >= 500) {
+    } else if (response && response.status >= 500) {
       toast.error('Server error. Please try again later.')
     } else if (error.code === 'ECONNABORTED') {
       toast.error('Request timeout. Please check your connection.')
