@@ -25,6 +25,7 @@ export default function TeamPage() {
   const [newUser, setNewUser] = useState({
     full_name: '',
     email: '',
+    password: '',
     role: 'employee',
     team: '',
     phone: ''
@@ -38,7 +39,8 @@ export default function TeamPage() {
   const fetchUsers = async () => {
     try {
       const data = await usersApi.getAll()
-      setUsers(data)
+      // API returns {users: [...]} so extract the users array
+      setUsers(data.users || data)
     } catch (error) {
       console.error('Error fetching users:', error)
       toast.error('Failed to fetch team members')
@@ -56,6 +58,7 @@ export default function TeamPage() {
       setNewUser({
         full_name: '',
         email: '',
+        password: '',
         role: 'employee',
         team: '',
         phone: ''
@@ -257,6 +260,18 @@ export default function TeamPage() {
                         className="input mt-1"
                         value={newUser.email}
                         onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Password</label>
+                      <input
+                        type="password"
+                        required
+                        minLength={6}
+                        className="input mt-1"
+                        placeholder="Minimum 6 characters"
+                        value={newUser.password}
+                        onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                       />
                     </div>
                     <div>

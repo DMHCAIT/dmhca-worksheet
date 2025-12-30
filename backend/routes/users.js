@@ -1,5 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
+const bcrypt = require('bcryptjs');
 const supabase = require('../config/supabase');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 
@@ -39,29 +40,41 @@ router.get('/', authMiddleware, requireRole('admin', 'team_lead'), async (req, r
 router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
   try {
     console.log('👤 POST /api/users - Creating new user:', req.body);
-    const { email, full_name, role, team } = req.body;
+    const { email, full_name, password, role, team, phone } = req.body;
 
     // Validate required fields
-    if (!email || !full_name || !team) {
+    if (!email || !full_name || !password || !team) {
       return res.status(400).json({ 
-        error: 'Missing required fields: email, full_name, and team are required' 
+        error: 'Missing required fields: email, full_name, password, and team are required' 
       });
     }
 
-    // Generate a UUID for the new user (simplified approach for development)
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        error: 'Password must be at least 6 characters long' 
+      });
+    }
+
+    // Generate a UUID for the new user
     const newUserId = uuidv4();
 
-    // Create profile directly (simplified for development - no Supabase Auth)
+    // Hash the password
+    const password_hash = await bcrypt.hash(password, 10);
+
+    // Create profile with hashed password
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .insert({
         id: newUserId,
         email,
         full_name,
+        password_hash,
         role: role || 'employee',
-        team
+        team,
+        phone: phone || null
       })
-      .select('id, email, full_name, role, team, created_at')
+      .select('id, email, full_name, role, team, phone, created_at')
       .single();
 
     if (profileError) {
