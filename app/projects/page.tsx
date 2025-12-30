@@ -80,7 +80,12 @@ function ProjectsContent() {
               </div>
               <p className="text-gray-600 text-sm mb-4 line-clamp-2">{project.description}</p>
               <div className="text-xs text-gray-500">
-                <p>Started: {new Date(project.start_date).toLocaleDateString()}</p>
+                {project.start_date && (
+                  <p>Started: {new Date(project.start_date).toLocaleDateString()}</p>
+                )}
+                {project.deadline && (
+                  <p>Deadline: {new Date(project.deadline).toLocaleDateString()}</p>
+                )}
                 {project.end_date && (
                   <p>Ends: {new Date(project.end_date).toLocaleDateString()}</p>
                 )}
