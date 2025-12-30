@@ -15,6 +15,22 @@ const notificationRoutes = require('./routes/notifications');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// CORS configuration - MUST be first, before all other middleware
+const corsOptions = {
+  origin: true, // Allow all origins
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400, // 24 hours
+};
+
+// Handle preflight requests first
+app.options('*', cors(corsOptions));
+
+// Apply CORS to all requests
+app.use(cors(corsOptions));
+
 // Enhanced Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
@@ -66,22 +82,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Debug middleware for CORS
+// Debug middleware
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url} - Origin: ${req.headers.origin}`);
   next();
 });
-
-// Handle preflight requests explicitly
-app.options('*', cors());
-
-// CORS configuration - Allow all origins for now
-app.use(cors({
-  origin: true, // Allow all origins
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
-}));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
