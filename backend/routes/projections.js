@@ -11,7 +11,10 @@ router.get('/', authMiddleware, async (req, res) => {
     
     let query = supabase
       .from('work_projections')
-      .select('*');
+      .select(`
+        *,
+        user:profiles!user_id(full_name, email)
+      `);
 
     // Filter based on role
     if (req.user.role === 'employee') {
