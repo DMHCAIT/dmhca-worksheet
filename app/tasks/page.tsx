@@ -44,17 +44,37 @@ function TasksContent() {
 
   // Get unique departments from users
   const departments = useMemo(() => {
-    const depts = new Set(users.map(u => u.department).filter(Boolean))
-    return Array.from(depts).sort()
+    const depts = new Set(
+      users
+        .map(u => u.department || u.team) // Use team as fallback
+        .filter(Boolean) // Remove null/undefined/empty
+        .filter(d => d !== 'undefined' && d !== 'null') // Remove string literals
+    )
+    const deptArray = Array.from(depts).sort()
+    console.log('Users:', users.length, 'Departments found:', deptArray)
+    return deptArray
+  }, [users])
+
+  // Get unique teams from users (alternative to departments)
+  const teams = useMemo(() => {
+    const teamSet = new Set(
+      users
+        .map(u => u.team)
+        .filter(Boolean)
+        .filter(t => t !== 'undefined' && t !== 'null')
+    )
+    return Array.from(teamSet).sort()
   }, [users])
 
   // Filter tasks based on selected filters
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
-      // Filter by department
+      // Filter by department/team
       if (filterDepartment) {
         const assignedUser = users.find(u => u.id === task.assigned_to)
-        if (!assignedUser || assignedUser.department !== filterDepartment) {
+        if (!assignedUser) return false
+        const userDept = assignedUser.department || assignedUser.team
+        if (userDept !== filterDepartment) {
           return false
         }
       }
