@@ -38,7 +38,8 @@ router.get('/', authMiddleware, async (req, res) => {
       week_start_date: p.week_start,
       week_end_date: p.week_end,
       estimated_hours: p.planned_hours || 0,
-      notes: p.description || p.notes
+      notes: p.description || p.notes,
+      project: p.title ? { name: p.title } : null
     }));
 
     console.log('✅ Projections retrieved:', mappedProjections.length);
@@ -75,10 +76,22 @@ router.post('/', authMiddleware, async (req, res) => {
       status = 'draft'
     } = req.body;
 
+    // If project_id is provided, fetch the project name
+    let projectTitle = title;
+    if (project_id) {
+      const { data: project } = await supabase
+        .from('projects')
+        .select('name')
+        .eq('id', project_id)
+        .single();
+      
+      projectTitle = project?.name || `Project ${project_id}`;
+    }
+
     const { data: projection, error } = await supabase
       .from('work_projections')
       .insert({
-        title: title || `Week ${week_start_date || week_start}`,
+        title: projectTitle || `Week ${week_start_date || week_start}`,
         description: description || notes || '',
         week_start: week_start_date || week_start,
         week_end: week_end_date || week_end,
@@ -99,9 +112,20 @@ router.post('/', authMiddleware, async (req, res) => {
       });
     }
 
+    // Map to frontend format
+    const mappedProjection = {
+      ...projection,
+      week_start_date: projection.week_start,
+      week_end_date: projection.week_end,
+      estimated_hours: projection.planned_hours || 0,
+      notes: projection.description,
+      project: projectTitle ? { name: projectTitle } : null,
+      project_id: project_id || null
+    };
+
     res.status(201).json({ 
       success: true,
-      data: projection,
+      data: mappedProjection,
       message: 'Projection created successfully' 
     });
   } catch (error) {
