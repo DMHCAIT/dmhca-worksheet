@@ -1,0 +1,24 @@
+# Render deployment configuration for backend
+services:
+  - name: dmhca-worksheet
+    type: web
+    env: node
+    repo: https://github.com/your-username/dmhca-worksheet.git
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: SUPABASE_URL
+        value: https://eqeikrpqtzypfbcdzbrc.supabase.co
+      - key: SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxZWlrcnBxdHp5cGZiY2R6YnJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5OTkxNjcsImV4cCI6MjA4MjU3NTE2N30.0Kg90rzDxcOdxBONXyAf2xGQihjxAw4l7is1JsRkwOs
+      - key: JWT_SECRET
+        value: QQoo0uoif+kD1SGER/wGzfZvyhXV3eo4aSIWo5qzdSqRWBN60OH4W9KZa7Orsz8bMeST3z3QPy4UfBGEtg1ZoQ==
+      - key: FRONTEND_URL
+        value: https://dmhca-worksheet.vercel.app
+      - key: CORS_ORIGIN
+        value: https://dmhca-worksheet.vercel.app
+    healthCheckPath: /health

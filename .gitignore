@@ -1,0 +1,24 @@
+# Work Tracker Project
+
+node_modules/
+dist/
+.next/
+.env
+.env.local
+.env.production
+*.log
+.DS_Store
+coverage/
+.nyc_output/
+
+# Supabase
+.supabase/
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+tmp/
+temp/node_modules/
+.next/
