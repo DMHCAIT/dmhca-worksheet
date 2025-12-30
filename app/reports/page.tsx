@@ -53,9 +53,26 @@ export default function ReportsPage() {
   const fetchDashboardStats = async () => {
     try {
       const data = await reportsApi.getDashboard()
-      setDashboardStats(data)
+      // Ensure arrays have default values
+      setDashboardStats({
+        ...data,
+        projectsByTeam: data.projectsByTeam || [],
+        tasksByStatus: data.tasksByStatus || [],
+        tasksByPriority: data.tasksByPriority || [],
+        recentActivity: data.recentActivity || []
+      })
     } catch (error) {
       console.error('Error fetching dashboard stats:', error)
+      // Set default empty data on error
+      setDashboardStats({
+        totalProjects: 0,
+        totalTasks: 0,
+        totalUsers: 0,
+        projectsByTeam: [],
+        tasksByStatus: [],
+        tasksByPriority: [],
+        recentActivity: []
+      })
     } finally {
       setIsLoading(false)
     }
@@ -151,54 +168,66 @@ export default function ReportsPage() {
             {/* Projects by Team */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Projects by Team</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={dashboardStats.projectsByTeam}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="team" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#3B82F6" />
-                </BarChart>
-              </ResponsiveContainer>
+              {dashboardStats.projectsByTeam && dashboardStats.projectsByTeam.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={dashboardStats.projectsByTeam}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="team" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#3B82F6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-gray-500 text-center py-12">No data available</p>
+              )}
             </div>
 
             {/* Tasks by Status */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Tasks by Status</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={dashboardStats.tasksByStatus}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ status, count }) => `${status}: ${count}`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {dashboardStats.tasksByStatus.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {dashboardStats.tasksByStatus && dashboardStats.tasksByStatus.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={dashboardStats.tasksByStatus}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ status, count }) => `${status}: ${count}`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {dashboardStats.tasksByStatus.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-gray-500 text-center py-12">No data available</p>
+              )}
             </div>
           </div>
 
           {/* Tasks by Priority */}
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Tasks by Priority</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dashboardStats.tasksByPriority} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="priority" type="category" />
-                <Tooltip />
-                <Bar dataKey="count" fill="#10B981" />
-              </BarChart>
-            </ResponsiveContainer>
+            {dashboardStats.tasksByPriority && dashboardStats.tasksByPriority.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={dashboardStats.tasksByPriority} layout="horizontal">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="priority" type="category" />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#10B981" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-gray-500 text-center py-12">No data available</p>
+            )}
           </div>
         </div>
       )}
@@ -206,8 +235,9 @@ export default function ReportsPage() {
       {/* Project Analytics */}
       {selectedTab === 'projects' && (
         <div className="space-y-8">
-          <div className="grid gap-6">
-            {projectStats.map((project) => (
+          {projectStats && projectStats.length > 0 ? (
+            <div className="grid gap-6">
+              {projectStats.map((project) => (
               <div key={project.id} className="bg-white rounded-lg shadow p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
@@ -248,16 +278,22 @@ export default function ReportsPage() {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No project data available</p>
+            </div>
+          )}
         </div>
       )}
 
       {/* Team Performance */}
       {selectedTab === 'team' && (
         <div className="space-y-8">
-          <div className="grid gap-6">
-            {teamPerformance.map((team) => (
+          {teamPerformance && teamPerformance.length > 0 ? (
+            <div className="grid gap-6">
+              {teamPerformance.map((team) => (
               <div key={team.team} className="bg-white rounded-lg shadow p-6">
                 <div className="flex justify-between items-start mb-6">
                   <div>
@@ -301,8 +337,13 @@ export default function ReportsPage() {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No team performance data available</p>
+            </div>
+          )}
         </div>
       )}
     </DashboardLayout>

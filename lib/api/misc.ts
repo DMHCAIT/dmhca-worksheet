@@ -7,7 +7,8 @@ export const reportsApi = {
   },
   async getDashboard() {
     const response = await apiClient.get('/reports/dashboard')
-    return response.data.data || {}
+    // Dashboard endpoint returns data directly (not in {success, data} format)
+    return response.data || {}
   },
   async getProjectStats() {
     const response = await apiClient.get('/reports/project-stats')
