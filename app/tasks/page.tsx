@@ -10,6 +10,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { CreateTaskRequest, UpdateTaskRequest, Task, TaskComment, TaskAttachment } from '@/types'
 import { tasksApi } from '@/lib/api'
 import toast from 'react-hot-toast'
+import { uploadTaskFile, deleteTaskFile } from '@/lib/supabase/client'
 
 function TasksContent() {
   const { user } = useAuth()
@@ -151,9 +152,8 @@ function TasksContent() {
     setUploadingFile(true)
     
     try {
-      // For demo purposes, we'll use a placeholder URL
-      // In production, you'd upload to S3, Supabase Storage, etc.
-      const fileUrl = `https://example.com/uploads/${Date.now()}-${file.name}`
+      // Upload file to Supabase Storage
+      const { url: fileUrl } = await uploadTaskFile(file, viewingTask.id)
       
       const attachment = await tasksApi.addAttachment(viewingTask.id, {
         file_name: file.name,
@@ -169,6 +169,7 @@ function TasksContent() {
       toast.success('File uploaded successfully')
       e.target.value = '' // Reset file input
     } catch (error) {
+      console.error('Upload error:', error)
       toast.error('Failed to upload file')
     } finally {
       setUploadingFile(false)
@@ -179,7 +180,22 @@ function TasksContent() {
     if (!viewingTask || !confirm('Delete this attachment?')) return
     
     try {
+      // Find the attachment to get the file URL
+      const attachment = taskDetails.attachments.find(a => a.id === attachmentId)
+      
+      // Delete from database first
       await tasksApi.deleteAttachment(viewingTask.id, attachmentId)
+      
+      // Try to delete from storage (non-critical if it fails)
+      if (attachment?.file_url) {
+        try {
+          await deleteTaskFile(attachment.file_url)
+        } catch (storageError) {
+          console.error('Failed to delete file from storage:', storageError)
+          // Continue anyway - database record is already deleted
+        }
+      }
+      
       setTaskDetails(prev => ({
         ...prev,
         attachments: prev.attachments.filter(a => a.id !== attachmentId)

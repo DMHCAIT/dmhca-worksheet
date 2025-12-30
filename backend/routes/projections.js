@@ -46,30 +46,153 @@ router.get('/', authMiddleware, async (req, res) => {
 // Create work projection
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { title, description, week_start, week_end, planned_hours, goals } = req.body;
+    const { 
+      title, 
+      description, 
+      week_start, 
+      week_end, 
+      planned_hours, 
+      goals,
+      // Support frontend field names
+      week_start_date,
+      week_end_date,
+      project_id,
+      estimated_hours,
+      notes,
+      status = 'draft'
+    } = req.body;
 
     const { data: projection, error } = await supabase
       .from('work_projections')
       .insert({
-        title,
-        description,
-        week_start,
-        week_end,
-        planned_hours,
-        goals,
+        title: title || `Week ${week_start_date || week_start}`,
+        description: description || notes || '',
+        week_start: week_start_date || week_start,
+        week_end: week_end_date || week_end,
+        planned_hours: estimated_hours || planned_hours || 0,
+        goals: goals || null,
+        status,
         user_id: req.user.id,
-        team: req.user.team
+        team: req.user.team || 'General'
       })
       .select()
       .single();
 
     if (error) {
-      return res.status(400).json({ error: error.message });
+      console.error('❌ Error creating projection:', error);
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'CREATE_ERROR', message: error.message } 
+      });
     }
 
-    res.status(201).json(projection);
+    res.status(201).json({ 
+      success: true,
+      data: projection,
+      message: 'Projection created successfully' 
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Server error creating projection:', error);
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Update work projection
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      title, 
+      description, 
+      week_start, 
+      week_end, 
+      planned_hours, 
+      actual_hours,
+      goals,
+      status,
+      notes,
+      week_start_date,
+      week_end_date,
+      estimated_hours
+    } = req.body;
+
+    const updateData = {
+      title: title || updateData?.title,
+      description: description || notes,
+      week_start: week_start_date || week_start,
+      week_end: week_end_date || week_end,
+      planned_hours: estimated_hours || planned_hours,
+      actual_hours,
+      goals,
+      status,
+      updated_at: new Date().toISOString()
+    };
+
+    // Remove undefined values
+    Object.keys(updateData).forEach(key => 
+      updateData[key] === undefined && delete updateData[key]
+    );
+
+    const { data: projection, error } = await supabase
+      .from('work_projections')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error updating projection:', error);
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'UPDATE_ERROR', message: error.message } 
+      });
+    }
+
+    res.json({ 
+      success: true,
+      data: projection,
+      message: 'Projection updated successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Server error updating projection:', error);
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Delete work projection
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('work_projections')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('❌ Error deleting projection:', error);
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'DELETE_ERROR', message: error.message } 
+      });
+    }
+
+    res.json({ 
+      success: true,
+      message: 'Projection deleted successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Server error deleting projection:', error);
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
   }
 });
 
