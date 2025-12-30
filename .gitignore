@@ -22,3 +22,5 @@ coverage/
 tmp/
 temp/node_modules/
 .next/
+.vercel
+.env*.local

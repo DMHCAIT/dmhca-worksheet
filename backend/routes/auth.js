@@ -30,7 +30,7 @@ const loginSchema = Joi.object({
 });
 
 // Register user
-router.post('/register', authLimiter, async (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     // Validate input
     const { error: validationError, value } = registerSchema.validate(req.body);
@@ -103,7 +103,7 @@ router.post('/register', authLimiter, async (req, res) => {
 });
 
 // Login
-router.post('/login', authLimiter, async (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     // Validate input
     const { error: validationError, value } = loginSchema.validate(req.body);
