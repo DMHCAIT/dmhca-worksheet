@@ -28,7 +28,7 @@ export default function LoginPage() {
           email: credentials.email,
           password: credentials.password,
           full_name: credentials.full_name,
-          team: credentials.team,
+          department: credentials.department,
           role: credentials.role
         })
         
