@@ -57,8 +57,14 @@ export const taskSchema = z.object({
   deadline: z.string().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
+  created_by: z.string().optional(),
   project_name: z.string().optional(),
   assigned_user_name: z.string().optional(),
+  creator_name: z.string().optional(),
+  creator: z.object({
+    full_name: z.string(),
+    email: z.string(),
+  }).optional(),
   comments: z.array(z.any()).optional(),
   attachments: z.array(z.any()).optional(),
 })
