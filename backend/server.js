@@ -72,40 +72,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS configuration
+// Handle preflight requests explicitly
+app.options('*', cors());
+
+// CORS configuration - Allow all origins for now
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:3002',
-      'https://dmhca-worksheet.vercel.app',
-      'https://dmhca-worksheet-git-main-dmhcait.vercel.app',
-      'https://dmhca-worksheet-dmhcait.vercel.app',
-      'https://dmhca-worksheet.onrender.com',
-      process.env.FRONTEND_URL,
-      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
-    ].filter(Boolean);
-    
-    // Check if the origin is in the allowed origins or if it's a Vercel preview deployment
-    if (allowedOrigins.indexOf(origin) !== -1 || 
-        (origin && origin.includes('dmhca-worksheet') && origin.includes('vercel.app'))) {
-      return callback(null, true);
-    }
-    
-    // In production, be more permissive for now
-    if (process.env.NODE_ENV === 'production') {
-      return callback(null, true);
-    }
-    
-    return callback(new Error('Not allowed by CORS'), false);
-  },
+  origin: true, // Allow all origins
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
 
 // Body parsing middleware
