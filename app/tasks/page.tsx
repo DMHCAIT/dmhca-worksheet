@@ -150,6 +150,15 @@ function TasksContent() {
     if (!viewingTask || !e.target.files?.[0]) return
     
     const file = e.target.files[0]
+    
+    // Check file size (max 50MB)
+    const maxSize = 50 * 1024 * 1024
+    if (file.size > maxSize) {
+      toast.error('File size must be less than 50MB')
+      e.target.value = ''
+      return
+    }
+    
     setUploadingFile(true)
     
     try {
@@ -169,9 +178,15 @@ function TasksContent() {
       
       toast.success('File uploaded successfully')
       e.target.value = '' // Reset file input
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error)
-      toast.error('Failed to upload file')
+      const errorMessage = error?.message || 'Failed to upload file'
+      if (errorMessage.includes('row-level security')) {
+        toast.error('Storage permission error. Please contact administrator.')
+      } else {
+        toast.error(errorMessage)
+      }
+      e.target.value = ''
     } finally {
       setUploadingFile(false)
     }
@@ -219,14 +234,32 @@ function TasksContent() {
     })
   }
 
-  const handleDownloadAttachment = (url: string, filename: string) => {
-    const link = document.createElement('a')
-    link.href = url
-    link.download = filename
-    link.target = '_blank'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+  const handleDownloadAttachment = async (url: string, filename: string) => {
+    try {
+      // Fetch the file and create a blob
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error('Failed to fetch file')
+      }
+      const blob = await response.blob()
+      
+      // Create download link
+      const blobUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      // Clean up
+      window.URL.revokeObjectURL(blobUrl)
+      toast.success('Download started')
+    } catch (error) {
+      console.error('Download error:', error)
+      // Fallback: open in new tab
+      window.open(url, '_blank')
+    }
   }
 
   const clearFilters = () => {
@@ -911,15 +944,21 @@ function TasksContent() {
                   src={previewFile.url} 
                   alt={previewFile.name}
                   className="max-w-full h-auto mx-auto"
+                  crossOrigin="anonymous"
+                  onError={(e) => {
+                    console.error('Image load error:', e)
+                    toast.error('Failed to load image preview')
+                  }}
                 />
               ) : (
                 <div className="text-center py-12">
                   <p className="text-gray-600 mb-4">Preview not available for this file type</p>
+                  <p className="text-sm text-gray-500 mb-4">{previewFile.name}</p>
                   <button
                     onClick={() => handleDownloadAttachment(previewFile.url, previewFile.name)}
                     className="btn btn-primary"
                   >
-                    Download File
+                    📥 Download File
                   </button>
                 </div>
               )}
