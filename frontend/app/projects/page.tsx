@@ -59,7 +59,7 @@ export default function ProjectsPage() {
     }
   }
 
-  const canCreateProject = user && ['admin', 'team_lead'].includes(user.role)
+  const canCreateProject = true  // All users can create projects
 
   if (isLoading) {
     return (

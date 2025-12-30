@@ -120,7 +120,7 @@ export default function TasksPage() {
     }
   }
 
-  const canCreateTask = user && ['admin', 'team_lead'].includes(user.role)
+  const canCreateTask = true  // All users can create tasks
 
   const filteredTasks = tasks.filter(task => {
     if (filter === 'all') return true

@@ -43,8 +43,8 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Create task
-router.post('/', authMiddleware, requireRole('admin', 'team_lead'), async (req, res) => {
+// Create task (all authenticated users can create)
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const { title, description, project_id, assigned_to, priority, deadline, team } = req.body;
 

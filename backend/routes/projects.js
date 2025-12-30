@@ -34,8 +34,8 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Create project
-router.post('/', authMiddleware, requireRole('admin', 'team_lead'), async (req, res) => {
+// Create project (all authenticated users can create)
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const { name, description, team, deadline } = req.body;
 
