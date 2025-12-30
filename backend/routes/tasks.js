@@ -105,7 +105,7 @@ router.post('/', authMiddleware, async (req, res) => {
         assigned_to,
         priority: priority || 'medium',
         deadline,
-        team,
+        team: team || req.user.team || 'general',
         created_by: req.user.id
       })
       .select()
