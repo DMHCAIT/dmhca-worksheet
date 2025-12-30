@@ -116,6 +116,8 @@ router.post('/login', async (req, res) => {
 
     const { email, password } = value;
 
+    console.log('🔍 Login attempt for:', email.toLowerCase());
+
     // Get user from database
     const { data: user, error } = await supabase
       .from('profiles')
@@ -123,7 +125,10 @@ router.post('/login', async (req, res) => {
       .eq('email', email.toLowerCase())
       .single();
 
+    console.log('📊 Database query result:', { user: user ? 'Found' : 'Not found', error: error?.message });
+
     if (error || !user) {
+      console.log('❌ User not found or error:', error?.message);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
