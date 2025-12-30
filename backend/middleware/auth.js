@@ -39,12 +39,15 @@ const authMiddleware = async (req, res, next) => {
 };
 
 const requireRole = (...roles) => {
+  // Flatten roles in case an array was passed (e.g., requireRole(['admin', 'team_lead']))
+  const allowedRoles = roles.flat();
+  
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
     
-    if (!roles.includes(req.user.role)) {
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
     
