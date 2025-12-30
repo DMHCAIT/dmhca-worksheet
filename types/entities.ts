@@ -89,3 +89,19 @@ export interface Report {
   created_at: string
   updated_at: string
 }
+
+export interface WorkProjection {
+  id: number
+  week_start_date: string
+  week_end_date: string
+  project_id: number
+  user_id: string
+  team: string
+  estimated_hours: number
+  actual_hours?: number
+  status: string
+  notes?: string
+  created_at: string
+  project?: { name: string }
+  user?: { full_name: string }
+}
