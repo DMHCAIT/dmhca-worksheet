@@ -112,7 +112,7 @@ function TeamContent() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {member.department || 'N/A'}
+                    {member.team || member.department || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {member.created_at ? new Date(member.created_at).toLocaleDateString() : 'N/A'}
