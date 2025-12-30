@@ -14,7 +14,8 @@ router.get('/', authMiddleware, async (req, res) => {
       .select(`
         *,
         project:projects(name),
-        assignee:profiles!assigned_to(full_name, email)
+        assignee:profiles!assigned_to(full_name, email),
+        creator:profiles!created_by(full_name, email)
       `);
 
     // Filter tasks based on role
@@ -58,7 +59,8 @@ router.get('/:id', authMiddleware, async (req, res) => {
       .select(`
         *,
         project:projects(name),
-        assignee:profiles!assigned_to(full_name, email)
+        assignee:profiles!assigned_to(full_name, email),
+        creator:profiles!created_by(full_name, email)
       `)
       .eq('id', id)
       .single();
@@ -78,9 +80,33 @@ router.get('/:id', authMiddleware, async (req, res) => {
       });
     }
 
+    // Get comments
+    const { data: comments } = await supabase
+      .from('task_comments')
+      .select(`
+        *,
+        user:profiles(full_name, email)
+      `)
+      .eq('task_id', id)
+      .order('created_at', { ascending: true });
+
+    // Get attachments
+    const { data: attachments } = await supabase
+      .from('task_attachments')
+      .select(`
+        *,
+        uploader:profiles!uploaded_by(full_name, email)
+      `)
+      .eq('task_id', id)
+      .order('created_at', { ascending: false });
+
     res.json({ 
       success: true, 
-      data: task, 
+      data: {
+        ...task,
+        comments: comments || [],
+        attachments: attachments || []
+      }, 
       message: 'Task retrieved successfully' 
     });
   } catch (error) {
@@ -233,6 +259,181 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       success: true, 
       data: null, 
       message: 'Task deleted successfully' 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Add comment to task
+router.post('/:id/comments', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment } = req.body;
+
+    if (!comment || comment.trim() === '') {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'VALIDATION_ERROR', message: 'Comment is required' } 
+      });
+    }
+
+    // Check if task exists
+    const { data: task } = await supabase
+      .from('tasks')
+      .select('id')
+      .eq('id', id)
+      .single();
+
+    if (!task) {
+      return res.status(404).json({ 
+        success: false, 
+        error: { code: 'NOT_FOUND', message: 'Task not found' } 
+      });
+    }
+
+    const { data: newComment, error } = await supabase
+      .from('task_comments')
+      .insert({
+        task_id: id,
+        user_id: req.user.id,
+        comment
+      })
+      .select(`
+        *,
+        user:profiles(full_name, email)
+      `)
+      .single();
+
+    if (error) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    res.status(201).json({ 
+      success: true, 
+      data: newComment, 
+      message: 'Comment added successfully' 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Add attachment to task
+router.post('/:id/attachments', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { file_name, file_url, file_size } = req.body;
+
+    if (!file_name || !file_url) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'VALIDATION_ERROR', message: 'File name and URL are required' } 
+      });
+    }
+
+    // Check if task exists
+    const { data: task } = await supabase
+      .from('tasks')
+      .select('id')
+      .eq('id', id)
+      .single();
+
+    if (!task) {
+      return res.status(404).json({ 
+        success: false, 
+        error: { code: 'NOT_FOUND', message: 'Task not found' } 
+      });
+    }
+
+    const { data: attachment, error } = await supabase
+      .from('task_attachments')
+      .insert({
+        task_id: id,
+        file_name,
+        file_url,
+        file_size,
+        uploaded_by: req.user.id
+      })
+      .select(`
+        *,
+        uploader:profiles!uploaded_by(full_name, email)
+      `)
+      .single();
+
+    if (error) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    res.status(201).json({ 
+      success: true, 
+      data: attachment, 
+      message: 'Attachment added successfully' 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Delete attachment
+router.delete('/:taskId/attachments/:attachmentId', authMiddleware, async (req, res) => {
+  try {
+    const { taskId, attachmentId } = req.params;
+
+    // Check if attachment exists and belongs to task
+    const { data: attachment } = await supabase
+      .from('task_attachments')
+      .select('*')
+      .eq('id', attachmentId)
+      .eq('task_id', taskId)
+      .single();
+
+    if (!attachment) {
+      return res.status(404).json({ 
+        success: false, 
+        error: { code: 'NOT_FOUND', message: 'Attachment not found' } 
+      });
+    }
+
+    // Only uploader or admin can delete
+    if (req.user.role !== 'admin' && attachment.uploaded_by !== req.user.id) {
+      return res.status(403).json({ 
+        success: false, 
+        error: { code: 'FORBIDDEN', message: 'Only uploaders or admins can delete attachments' } 
+      });
+    }
+
+    const { error } = await supabase
+      .from('task_attachments')
+      .delete()
+      .eq('id', attachmentId);
+
+    if (error) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      data: null, 
+      message: 'Attachment deleted successfully' 
     });
   } catch (error) {
     res.status(500).json({ 

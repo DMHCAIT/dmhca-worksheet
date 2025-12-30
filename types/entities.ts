@@ -42,8 +42,31 @@ export interface Task {
   deadline?: string | null
   created_at: string
   updated_at: string
+  created_by?: string
   project_name?: string
   assigned_user_name?: string
+  creator_name?: string
+  team?: string
+}
+
+export interface TaskComment {
+  id: number
+  task_id: number
+  user_id: string
+  comment: string
+  created_at: string
+  user_name?: string
+}
+
+export interface TaskAttachment {
+  id: number
+  task_id: number
+  file_name: string
+  file_url: string
+  file_size?: number
+  uploaded_by: string
+  created_at: string
+  uploader_name?: string
 }
 
 export interface Notification {

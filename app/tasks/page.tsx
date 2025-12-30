@@ -2,19 +2,26 @@
 
 import { useState, useMemo } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { ProtectedRoute } from '@/lib/auth/AuthProvider'
+import { ProtectedRoute, useAuth } from '@/lib/auth/AuthProvider'
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask, useProjects, useUsers } from '@/lib/hooks'
 import { TableSkeleton } from '@/components/LoadingSkeleton'
 import { ErrorDisplay } from '@/components/ErrorDisplay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { CreateTaskRequest, UpdateTaskRequest, Task } from '@/types'
+import { CreateTaskRequest, UpdateTaskRequest, Task, TaskComment, TaskAttachment } from '@/types'
+import { tasksApi } from '@/lib/api'
+import toast from 'react-hot-toast'
 
 function TasksContent() {
+  const { user } = useAuth()
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [viewingTask, setViewingTask] = useState<Task | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [filterDepartment, setFilterDepartment] = useState<string>('')
   const [filterAssignee, setFilterAssignee] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
+  const [newComment, setNewComment] = useState('')
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const [taskDetails, setTaskDetails] = useState<{ comments: TaskComment[], attachments: TaskAttachment[] }>({ comments: [], attachments: [] })
   
   const [newTask, setNewTask] = useState<CreateTaskRequest>({
     title: '',
@@ -79,7 +86,21 @@ function TasksContent() {
     })
   }
 
+  const handleViewTask = async (task: Task) => {
+    try {
+      const fullTask = await tasksApi.getById(task.id)
+      setTaskDetails({
+        comments: (fullTask as any).comments || [],
+        attachments: (fullTask as any).attachments || []
+      })
+      setViewingTask(fullTask)
+    } catch (error) {
+      toast.error('Failed to load task details')
+    }
+  }
+
   const handleEditTask = (task: Task) => {
+    setViewingTask(null)
     setEditingTask(task)
   }
 
@@ -104,6 +125,68 @@ function TasksContent() {
   const handleDeleteTask = async (id: number) => {
     if (confirm('Are you sure you want to delete this task?')) {
       await deleteTask.mutateAsync(id)
+    }
+  }
+
+  const handleAddComment = async () => {
+    if (!viewingTask || !newComment.trim()) return
+    
+    try {
+      const comment = await tasksApi.addComment(viewingTask.id, newComment)
+      setTaskDetails(prev => ({
+        ...prev,
+        comments: [...prev.comments, comment]
+      }))
+      setNewComment('')
+      toast.success('Comment added successfully')
+    } catch (error) {
+      toast.error('Failed to add comment')
+    }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!viewingTask || !e.target.files?.[0]) return
+    
+    const file = e.target.files[0]
+    setUploadingFile(true)
+    
+    try {
+      // For demo purposes, we'll use a placeholder URL
+      // In production, you'd upload to S3, Supabase Storage, etc.
+      const fileUrl = `https://example.com/uploads/${Date.now()}-${file.name}`
+      
+      const attachment = await tasksApi.addAttachment(viewingTask.id, {
+        file_name: file.name,
+        file_url: fileUrl,
+        file_size: file.size
+      })
+      
+      setTaskDetails(prev => ({
+        ...prev,
+        attachments: [attachment, ...prev.attachments]
+      }))
+      
+      toast.success('File uploaded successfully')
+      e.target.value = '' // Reset file input
+    } catch (error) {
+      toast.error('Failed to upload file')
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  const handleDeleteAttachment = async (attachmentId: number) => {
+    if (!viewingTask || !confirm('Delete this attachment?')) return
+    
+    try {
+      await tasksApi.deleteAttachment(viewingTask.id, attachmentId)
+      setTaskDetails(prev => ({
+        ...prev,
+        attachments: prev.attachments.filter(a => a.id !== attachmentId)
+      }))
+      toast.success('Attachment deleted')
+    } catch (error) {
+      toast.error('Failed to delete attachment')
     }
   }
 
@@ -235,13 +318,16 @@ function TasksContent() {
                   Assigned To
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Creator
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Priority
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Deadline
+                  Updated
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -252,7 +338,7 @@ function TasksContent() {
               {filteredTasks.map((task) => {
                 const assignedUser = users.find(u => u.id === task.assigned_to)
                 return (
-                  <tr key={task.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleEditTask(task)}>
+                  <tr key={task.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">{task.title}</div>
                       <div className="text-sm text-gray-500 truncate max-w-xs">{task.description}</div>
@@ -267,6 +353,14 @@ function TasksContent() {
                       {assignedUser?.department && (
                         <div className="text-xs text-gray-500">{assignedUser.department}</div>
                       )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">
+                        {(task as any).creator?.full_name || task.creator_name || 'Unknown'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(task.created_at).toLocaleDateString()}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -287,19 +381,33 @@ function TasksContent() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
-                      {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No deadline'}
+                      {new Date(task.updated_at).toLocaleString()}
                     </td>
-                    <td className="px-6 py-4 text-sm">
+                    <td className="px-6 py-4 text-sm space-x-2">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteTask(task.id)
-                        }}
-                        className="text-red-600 hover:text-red-800"
-                        disabled={deleteTask.isPending}
+                        onClick={() => handleViewTask(task)}
+                        className="text-blue-600 hover:text-blue-800"
                       >
-                        Delete
+                        View
                       </button>
+                      <button
+                        onClick={() => handleEditTask(task)}
+                        className="text-green-600 hover:text-green-800"
+                      >
+                        Edit
+                      </button>
+                      {(user?.role === 'admin' || task.created_by === user?.id) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteTask(task.id)
+                          }}
+                          className="text-red-600 hover:text-red-800"
+                          disabled={deleteTask.isPending}
+                        >
+                          Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )
@@ -440,6 +548,146 @@ function TasksContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Task Modal with Comments & Attachments */}
+      {viewingTask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{viewingTask.title}</h2>
+                <p className="text-gray-600 mt-1">{viewingTask.description}</p>
+              </div>
+              <button
+                onClick={() => setViewingTask(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Task Details */}
+            <div className="grid grid-cols-2 gap-4 mb-6 bg-gray-50 p-4 rounded">
+              <div>
+                <p className="text-sm text-gray-500">Status</p>
+                <p className="font-medium capitalize">{viewingTask.status.replace('_', ' ')}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Priority</p>
+                <p className="font-medium capitalize">{viewingTask.priority}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Created By</p>
+                <p className="font-medium">{(viewingTask as any).creator?.full_name || 'Unknown'}</p>
+                <p className="text-xs text-gray-500">{new Date(viewingTask.created_at).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Last Updated</p>
+                <p className="font-medium">{new Date(viewingTask.updated_at).toLocaleString()}</p>
+              </div>
+            </div>
+
+            {/* Attachments Section */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-semibold">📎 Attachments</h3>
+                <label className="btn btn-secondary cursor-pointer text-sm">
+                  {uploadingFile ? 'Uploading...' : '+ Upload File'}
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    disabled={uploadingFile}
+                  />
+                </label>
+              </div>
+              {taskDetails.attachments.length > 0 ? (
+                <div className="space-y-2">
+                  {taskDetails.attachments.map((att) => (
+                    <div key={att.id} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                      <div>
+                        <p className="font-medium text-sm">{att.file_name}</p>
+                        <p className="text-xs text-gray-500">
+                          Uploaded by {(att as any).uploader?.full_name} • {new Date(att.created_at).toLocaleDateString()}
+                          {att.file_size && ` • ${(att.file_size / 1024).toFixed(1)} KB`}
+                        </p>
+                      </div>
+                      {(user?.role === 'admin' || att.uploaded_by === user?.id) && (
+                        <button
+                          onClick={() => handleDeleteAttachment(att.id)}
+                          className="text-red-600 hover:text-red-800 text-sm"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm py-4 text-center bg-gray-50 rounded">No attachments</p>
+              )}
+            </div>
+
+            {/* Comments Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">💬 Comments & Reviews</h3>
+              
+              {/* Add Comment Form */}
+              <div className="mb-4 bg-gray-50 p-4 rounded">
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder={user?.role === 'admin' ? 'Add review or request changes...' : 'Add a comment...'}
+                  className="input mb-2"
+                  rows={3}
+                />
+                <button
+                  onClick={handleAddComment}
+                  className="btn btn-primary text-sm"
+                  disabled={!newComment.trim()}
+                >
+                  {user?.role === 'admin' ? '✓ Add Review' : '+ Add Comment'}
+                </button>
+              </div>
+
+              {/* Comments List */}
+              {taskDetails.comments.length > 0 ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {taskDetails.comments.map((comment) => (
+                    <div key={comment.id} className="bg-gray-50 p-4 rounded border-l-4 border-blue-500">
+                      <div className="flex justify-between items-start mb-2">
+                        <p className="font-medium text-sm">{(comment as any).user?.full_name || 'Unknown'}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(comment.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                      <p className="text-gray-700 text-sm whitespace-pre-wrap">{comment.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm py-4 text-center bg-gray-50 rounded">No comments yet. Be the first to comment!</p>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-6 pt-4 border-t">
+              <button
+                onClick={() => handleEditTask(viewingTask)}
+                className="btn btn-primary flex-1"
+              >
+                Edit Task
+              </button>
+              <button
+                onClick={() => setViewingTask(null)}
+                className="btn btn-secondary flex-1"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
