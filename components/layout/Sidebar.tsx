@@ -71,7 +71,7 @@ export default function Sidebar() {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-900">{user.full_name}</p>
               <p className="text-xs text-gray-500 capitalize">{user.role}</p>
-              <p className="text-xs text-gray-400 capitalize">{user.department || 'No department'}</p>
+              <p className="text-xs text-gray-400 capitalize">{user.department || user.team || 'No Department'}</p>
             </div>
           </div>
         </div>
