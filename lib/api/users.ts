@@ -57,9 +57,6 @@ export const usersApi = {
       department: (validated.data as any).team || validated.data.department
     } as User
   },
-    const validated = userResponseSchema.parse(response.data)
-    return validated.data
-  },
 
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/users/${id}`)
