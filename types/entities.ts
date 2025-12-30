@@ -11,6 +11,7 @@ export interface User {
   full_name: string
   role: UserRole
   department?: string
+  team?: string
   phone?: string
   created_at?: string
   updated_at?: string
