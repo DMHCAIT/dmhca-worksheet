@@ -44,21 +44,23 @@ router.get('/', authMiddleware, async (req, res) => {
 // Create project (all authenticated users can create)
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { name, description, team, deadline } = req.body;
+    const { name, description, team, deadline, status } = req.body;
 
     const { data: project, error } = await supabase
       .from('projects')
       .insert({
         name,
         description,
-        team,
+        team: team || req.user.team || 'General',
         deadline,
+        status: status || 'active',
         created_by: req.user.id
       })
       .select()
       .single();
 
     if (error) {
+      console.error('❌ Error creating project:', error);
       return res.status(400).json({ 
         success: false, 
         error: { code: 'DATABASE_ERROR', message: error.message } 
@@ -71,6 +73,7 @@ router.post('/', authMiddleware, async (req, res) => {
       message: 'Project created successfully' 
     });
   } catch (error) {
+    console.error('❌ Server error creating project:', error);
     res.status(500).json({ 
       success: false, 
       error: { code: 'SERVER_ERROR', message: error.message } 
@@ -146,14 +149,24 @@ router.put('/:id', authMiddleware, async (req, res) => {
       });
     }
 
+    // Build update object with only provided fields
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (team !== undefined) updateData.team = team;
+    if (deadline !== undefined) updateData.deadline = deadline;
+    if (status !== undefined) updateData.status = status;
+    updateData.updated_at = new Date().toISOString();
+
     const { data: project, error } = await supabase
       .from('projects')
-      .update({ name, description, team, deadline, status })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
 
     if (error) {
+      console.error('❌ Error updating project:', error);
       return res.status(400).json({ 
         success: false, 
         error: { code: 'DATABASE_ERROR', message: error.message } 
