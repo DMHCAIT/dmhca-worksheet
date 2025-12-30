@@ -29,10 +29,17 @@ router.get('/', authMiddleware, requireRole('admin', 'team_lead'), async (req, r
     }
 
     console.log('✅ Users retrieved:', users?.length || 0);
-    res.json({ users: users || [] });
+    res.json({ 
+      success: true, 
+      data: users || [], 
+      message: 'Users retrieved successfully' 
+    });
   } catch (error) {
     console.error('❌ Server error in users:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
   }
 });
 
@@ -84,11 +91,15 @@ router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
 
     console.log('✅ User created successfully:', profile.email);
     res.status(201).json({
-      message: 'User created successfully',
-      user: profile
+      success: true,
+      data: profile,
+      message: 'User created successfully'
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
   }
 });
 
@@ -109,12 +120,22 @@ router.get('/:id', authMiddleware, async (req, res) => {
       .single();
 
     if (error) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ 
+        success: false, 
+        error: { code: 'NOT_FOUND', message: 'User not found' } 
+      });
     }
 
-    res.json(user);
+    res.json({ 
+      success: true, 
+      data: user, 
+      message: 'User retrieved successfully' 
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
   }
 });
 
@@ -145,12 +166,22 @@ router.put('/:id', authMiddleware, async (req, res) => {
       .single();
 
     if (error) {
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
     }
 
-    res.json(user);
+    res.json({ 
+      success: true, 
+      data: user, 
+      message: 'User updated successfully' 
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
   }
 });
 
@@ -161,20 +192,33 @@ router.delete('/:id', authMiddleware, requireRole(['admin']), async (req, res) =
 
     // Don't allow admin to delete themselves
     if (id === req.user.id) {
-      return res.status(400).json({ error: 'Cannot delete your own account' });
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'INVALID_OPERATION', message: 'Cannot delete your own account' } 
+      });
     }
 
     // Delete from Supabase Auth
     const { error: authError } = await supabase.auth.admin.deleteUser(id);
 
     if (authError) {
-      return res.status(400).json({ error: authError.message });
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: authError.message } 
+      });
     }
 
     // Profile will be deleted automatically via trigger
-    res.json({ message: 'User deleted successfully' });
+    res.json({ 
+      success: true, 
+      data: null, 
+      message: 'User deleted successfully' 
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
   }
 });
 

@@ -35,11 +35,59 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 
     console.log('✅ Tasks retrieved:', tasks?.length || 0);
-    res.json({ tasks: tasks || [] });
-
-    res.json({ tasks: tasks || [] });
+    res.json({ 
+      success: true, 
+      data: tasks || [], 
+      message: 'Tasks retrieved successfully' 
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Get single task
+router.get('/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const { data: task, error } = await supabase
+      .from('tasks')
+      .select(`
+        *,
+        project:projects(name),
+        assignee:profiles!assigned_to(full_name, email)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error || !task) {
+      return res.status(404).json({ 
+        success: false, 
+        error: { code: 'NOT_FOUND', message: 'Task not found' } 
+      });
+    }
+
+    // Check access permissions
+    if (req.user.role === 'employee' && task.assigned_to !== req.user.id) {
+      return res.status(403).json({ 
+        success: false, 
+        error: { code: 'FORBIDDEN', message: 'Access denied' } 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      data: task, 
+      message: 'Task retrieved successfully' 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
   }
 });
 
@@ -64,12 +112,133 @@ router.post('/', authMiddleware, async (req, res) => {
       .single();
 
     if (error) {
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
     }
 
-    res.status(201).json(task);
+    res.status(201).json({ 
+      success: true, 
+      data: task, 
+      message: 'Task created successfully' 
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Update task
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, status, priority, project_id, assigned_to, deadline } = req.body;
+    
+    // Check if task exists
+    const { data: existingTask } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (!existingTask) {
+      return res.status(404).json({ 
+        success: false, 
+        error: { code: 'NOT_FOUND', message: 'Task not found' } 
+      });
+    }
+
+    // Check permissions
+    if (req.user.role === 'employee' && existingTask.assigned_to !== req.user.id) {
+      return res.status(403).json({ 
+        success: false, 
+        error: { code: 'FORBIDDEN', message: 'You can only update your own tasks' } 
+      });
+    }
+
+    const { data: task, error } = await supabase
+      .from('tasks')
+      .update({ title, description, status, priority, project_id, assigned_to, deadline })
+      .eq('id', id)
+      .select(`
+        *,
+        project:projects(name),
+        assignee:profiles!assigned_to(full_name, email)
+      `)
+      .single();
+
+    if (error) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      data: task, 
+      message: 'Task updated successfully' 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Delete task
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if task exists
+    const { data: existingTask } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (!existingTask) {
+      return res.status(404).json({ 
+        success: false, 
+        error: { code: 'NOT_FOUND', message: 'Task not found' } 
+      });
+    }
+
+    // Only admin or task creator can delete
+    if (req.user.role !== 'admin' && existingTask.created_by !== req.user.id) {
+      return res.status(403).json({ 
+        success: false, 
+        error: { code: 'FORBIDDEN', message: 'Only admins or task creators can delete tasks' } 
+      });
+    }
+
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      data: null, 
+      message: 'Task deleted successfully' 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
   }
 });
 

@@ -40,20 +40,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedUser = localStorage.getItem('user')
       
       if (token && storedUser) {
-        // Verify token is still valid
         try {
-          const userData = await authApi.getCurrentUser()
-          setUser(userData.user)
-          // Ensure cookie is set if token is valid
+          // Parse stored user first (don't wait for API on page load)
+          const parsedUser = JSON.parse(storedUser)
+          setUser(parsedUser)
+          
+          // Ensure cookie is set
           if (!Cookies.get('authToken')) {
             Cookies.set('authToken', token, { expires: 7, secure: true, sameSite: 'strict' })
           }
         } catch (error) {
-          // Token is invalid, clear storage
-          localStorage.removeItem('authToken')
-          localStorage.removeItem('user')
-          Cookies.remove('authToken')
-          setUser(null)
+          console.error('Failed to parse user:', error)
         }
       }
     } catch (error) {
