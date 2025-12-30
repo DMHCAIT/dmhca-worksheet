@@ -38,7 +38,23 @@ export async function uploadTaskFile(file: File, taskId: number): Promise<{ url:
 }
 
 // Helper function to delete file from Supabase Storage
-export async function deleteTaskFile(filePath: string): Promise<void> {
+export async function deleteTaskFile(fileUrlOrPath: string): Promise<void> {
+  // If it's an example.com URL, skip deletion
+  if (fileUrlOrPath.includes('example.com')) {
+    console.log('Skipping deletion of placeholder URL')
+    return
+  }
+
+  // Extract path from URL if needed
+  let filePath = fileUrlOrPath
+  if (fileUrlOrPath.startsWith('http')) {
+    // Extract path from Supabase URL
+    const urlParts = fileUrlOrPath.split('/content/')
+    if (urlParts.length > 1) {
+      filePath = urlParts[1]
+    }
+  }
+
   const { error } = await supabase.storage
     .from('content')
     .remove([filePath])
