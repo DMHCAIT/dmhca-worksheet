@@ -6,20 +6,22 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all users (admin/team_lead only)
-router.get('/', authMiddleware, requireRole('admin', 'team_lead'), async (req, res) => {
+// Get all users (all authenticated users can see team members)
+router.get('/', authMiddleware, async (req, res) => {
   try {
     console.log('👥 GET /api/users - User:', req.user?.email, 'Role:', req.user?.role);
     
+    // Select fields - add department and phone for team management
     let query = supabase
       .from('profiles')
-      .select('id, email, full_name, role, team, avatar_url, created_at, updated_at');
+      .select('id, email, full_name, role, team, department, phone, avatar_url, created_at, updated_at');
 
-    // Team leads can only see their team members
-    if (req.user.role === 'team_lead') {
+    // Team leads and regular employees only see their team members
+    if (req.user.role === 'team_lead' || req.user.role === 'employee') {
       query = query.eq('team', req.user.team);
       console.log('🔍 Filtering users by team:', req.user.team);
     }
+    // Admins see all users (no filter)
 
     const { data: users, error } = await query;
 

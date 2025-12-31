@@ -199,19 +199,13 @@ router.get('/my-subtasks', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const userRole = req.user.role;
     
+    console.log('📋 GET /my-subtasks - User:', req.user.email, 'Role:', userRole, 'ID:', userId);
+    
     // If admin, get all subtasks; otherwise only assigned to user
     let query = supabase
       .from('projection_subtasks')
       .select(`
         *,
-        projection:work_projections!projection_id(
-          id,
-          title,
-          project_name,
-          start_date,
-          end_date,
-          projection_type
-        ),
         assigned_user:profiles!assigned_to(id, full_name, email, avatar_url),
         creator:profiles!created_by(id, full_name, email)
       `);
@@ -219,6 +213,9 @@ router.get('/my-subtasks', authMiddleware, async (req, res) => {
     // Only filter by assigned_to for non-admin users
     if (userRole !== 'admin') {
       query = query.eq('assigned_to', userId);
+      console.log('🔍 Filtering subtasks for user:', userId);
+    } else {
+      console.log('👑 Admin - fetching all subtasks');
     }
     
     const { data: subtasks, error } = await query
@@ -233,6 +230,8 @@ router.get('/my-subtasks', authMiddleware, async (req, res) => {
       });
     }
 
+    console.log('✅ Subtasks retrieved:', subtasks?.length || 0);
+    
     res.json({ 
       success: true,
       data: subtasks || [],
