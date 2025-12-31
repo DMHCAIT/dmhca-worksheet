@@ -25,8 +25,24 @@ export default function ReportsPage() {
   const [filterDateTo, setFilterDateTo] = useState<string>('')
   
   const { user } = useAuth()
-  const { data: tasks = [], isLoading } = useTasks()
+  const { data: allTasks = [], isLoading } = useTasks()
   const { data: users = [] } = useUsers()
+
+  // Filter tasks based on user role
+  const tasks = useMemo(() => {
+    if (!user) return []
+    
+    // Admin sees all tasks
+    if (user.role === 'admin') return allTasks
+    
+    // Team lead sees only their team's tasks
+    if (user.role === 'team_lead') {
+      return allTasks.filter(task => task.team === user.team)
+    }
+    
+    // Employee sees only their assigned tasks
+    return allTasks.filter(task => task.assigned_to === user.id)
+  }, [allTasks, user])
 
   // Generate daily activity reports
   const dailyReports = useMemo(() => {

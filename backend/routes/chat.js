@@ -4,53 +4,49 @@ const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all conversations for current user (list of users they've chatted with)
+// Get all conversations for current user (shows all team members)
 router.get('/conversations', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
+    const userRole = req.user.role;
+    const userTeam = req.user.team;
     
-    // Get unique users the current user has conversed with
-    const { data: messages, error } = await supabase
-      .from('chat_messages')
-      .select('sender_id, receiver_id')
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('❌ Error fetching conversations:', error);
-      return res.status(400).json({ 
-        success: false,
-        error: { code: 'DATABASE_ERROR', message: error.message } 
-      });
-    }
-
-    // Get unique user IDs
-    const userIds = new Set();
-    messages.forEach(msg => {
-      if (msg.sender_id !== userId) userIds.add(msg.sender_id);
-      if (msg.receiver_id !== userId) userIds.add(msg.receiver_id);
-    });
-
-    // Get user details and online status
-    const { data: users, error: usersError } = await supabase
+    console.log('💬 GET /conversations - User:', req.user.email, 'Role:', userRole, 'Team:', userTeam);
+    
+    // Get all team members (excluding self)
+    let usersQuery = supabase
       .from('profiles')
-      .select(`
-        id,
-        full_name,
-        email,
-        avatar_url,
-        role,
-        team,
-        user_online_status(is_online, last_seen)
-      `)
-      .in('id', Array.from(userIds));
+      .select('id, full_name, email, avatar_url, role, team')
+      .neq('id', userId);
+    
+    // Filter by team for non-admin users
+    if (userRole === 'employee' || userRole === 'team_lead') {
+      usersQuery = usersQuery.eq('team', userTeam);
+      console.log('🔍 Filtering conversations by team:', userTeam);
+    }
+    
+    const { data: users, error: usersError } = await usersQuery;
 
     if (usersError) {
       console.error('❌ Error fetching users:', usersError);
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: usersError.message } 
+      });
     }
 
-    // Get unread message counts for each conversation
+    console.log('✅ Found', users?.length || 0, 'team members for conversations');
+
+    // Get unread message counts and online status for each user
     const conversationsWithUnread = await Promise.all((users || []).map(async (user) => {
+      // Get online status
+      const { data: statusData } = await supabase
+        .from('user_online_status')
+        .select('is_online, last_seen')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      // Get unread message count
       const { count, error: countError } = await supabase
         .from('chat_messages')
         .select('*', { count: 'exact', head: true })
@@ -61,8 +57,8 @@ router.get('/conversations', authMiddleware, async (req, res) => {
       return {
         ...user,
         unread_count: count || 0,
-        is_online: user.user_online_status?.[0]?.is_online || false,
-        last_seen: user.user_online_status?.[0]?.last_seen || null
+        is_online: statusData?.is_online || false,
+        last_seen: statusData?.last_seen || null
       };
     }));
 
