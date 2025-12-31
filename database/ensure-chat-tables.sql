@@ -54,3 +54,12 @@ CREATE POLICY "Users can view all online statuses" ON public.user_online_status
 CREATE POLICY "Users can update their own status" ON public.user_online_status
   FOR ALL
   USING (auth.uid() = user_id);
+
+-- Fix profiles table policies to allow all users to see each other for chat
+DROP POLICY IF EXISTS "Users can view all profiles for chat" ON public.profiles;
+CREATE POLICY "Users can view all profiles for chat" ON public.profiles
+  FOR SELECT
+  USING (true);  -- All authenticated users can view all profiles
+
+-- Note: This policy works alongside existing "Users can view their own profile" 
+-- and "Admins can view all profiles" policies. The most permissive policy wins.
