@@ -5,6 +5,11 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   
+  // Optimize CSS loading
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  
   // Security headers
   async headers() {
     return [
@@ -70,7 +75,13 @@ const nextConfig = {
   },
   
   experimental: {
-    optimizePackageImports: ['lucide-react'],
+    optimizePackageImports: ['lucide-react', 'recharts', '@tanstack/react-query'],
+  },
+  
+  // Reduce aggressive preloading
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
   }
 }
 
