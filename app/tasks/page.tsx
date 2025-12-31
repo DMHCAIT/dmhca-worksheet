@@ -20,6 +20,8 @@ function TasksContent() {
   const [filterDepartment, setFilterDepartment] = useState<string>('')
   const [filterAssignee, setFilterAssignee] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('')
+  const [filterDateTo, setFilterDateTo] = useState<string>('')
   const [newComment, setNewComment] = useState('')
   const [uploadingFile, setUploadingFile] = useState(false)
   const [previewFile, setPreviewFile] = useState<{ url: string; name: string; type: string } | null>(null)
@@ -89,9 +91,29 @@ function TasksContent() {
         return false
       }
       
+      // Filter by date range
+      if (filterDateFrom || filterDateTo) {
+        const taskDate = task.deadline || task.created_at
+        if (!taskDate) return false
+        
+        const taskDateObj = new Date(taskDate)
+        
+        if (filterDateFrom) {
+          const fromDate = new Date(filterDateFrom)
+          fromDate.setHours(0, 0, 0, 0)
+          if (taskDateObj < fromDate) return false
+        }
+        
+        if (filterDateTo) {
+          const toDate = new Date(filterDateTo)
+          toDate.setHours(23, 59, 59, 999)
+          if (taskDateObj > toDate) return false
+        }
+      }
+      
       return true
     })
-  }, [tasks, users, filterDepartment, filterAssignee, filterStatus])
+  }, [tasks, users, filterDepartment, filterAssignee, filterStatus, filterDateFrom, filterDateTo])
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -286,6 +308,8 @@ function TasksContent() {
     setFilterDepartment('')
     setFilterAssignee('')
     setFilterStatus('')
+    setFilterDateFrom('')
+    setFilterDateTo('')
   }
 
   if (error) {
@@ -311,18 +335,26 @@ function TasksContent() {
 
       {/* Filters */}
       <div className="mb-6 bg-white p-4 rounded-lg shadow">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Filter by Department
+              Department
             </label>
             <select
               value={filterDepartment}
               onChange={(e) => setFilterDepartment(e.target.value)}
-              className="input"
+              className="input text-sm"
             >
               <option value="">All Departments</option>
-              {departments.map((dept) => (
+              <option value="admin">Admin</option>
+              <option value="digital marketing">Digital Marketing</option>
+              <option value="sales">Sales</option>
+              <option value="it">IT</option>
+              {departments.filter(dept => {
+                if (!dept) return false
+                const predefined = ['admin', 'digital marketing', 'sales', 'it']
+                return !predefined.includes(dept.toLowerCase())
+              }).map((dept) => (
                 <option key={dept} value={dept}>
                   {dept}
                 </option>
@@ -332,12 +364,12 @@ function TasksContent() {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Filter by Assignee
+              Assignee
             </label>
             <select
               value={filterAssignee}
               onChange={(e) => setFilterAssignee(e.target.value)}
-              className="input"
+              className="input text-sm"
             >
               <option value="">All Assignees</option>
               {users.map((user) => (
@@ -350,12 +382,12 @@ function TasksContent() {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Filter by Status
+              Status
             </label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="input"
+              className="input text-sm"
             >
               <option value="">All Statuses</option>
               <option value="pending">Pending</option>
@@ -363,20 +395,92 @@ function TasksContent() {
               <option value="completed">Completed</option>
             </select>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date From
+            </label>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="input text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date To
+            </label>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="input text-sm"
+            />
+          </div>
           
           <div className="flex items-end">
             <button
               onClick={clearFilters}
-              className="btn btn-secondary w-full"
+              className="btn btn-secondary w-full text-sm"
             >
               Clear Filters
             </button>
           </div>
         </div>
         
-        {(filterDepartment || filterAssignee || filterStatus) && (
-          <div className="mt-3 text-sm text-gray-600">
-            Showing {filteredTasks.length} of {tasks.length} tasks
+        {(filterDepartment || filterAssignee || filterStatus || filterDateFrom || filterDateTo) && (
+          <div className="mt-3 flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Showing {filteredTasks.length} of {tasks.length} tasks
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {filterDepartment && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  Department: {filterDepartment}
+                  <button
+                    onClick={() => setFilterDepartment('')}
+                    className="ml-1 hover:text-blue-900"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {filterAssignee && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  Assignee: {users.find(u => u.id === filterAssignee)?.full_name}
+                  <button
+                    onClick={() => setFilterAssignee('')}
+                    className="ml-1 hover:text-green-900"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {filterStatus && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                  Status: {filterStatus.replace('_', ' ')}
+                  <button
+                    onClick={() => setFilterStatus('')}
+                    className="ml-1 hover:text-purple-900"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {(filterDateFrom || filterDateTo) && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  Date: {filterDateFrom || '...'} to {filterDateTo || '...'}
+                  <button
+                    onClick={() => { setFilterDateFrom(''); setFilterDateTo('') }}
+                    className="ml-1 hover:text-yellow-900"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+            </div>
           </div>
         )}
       </div>
