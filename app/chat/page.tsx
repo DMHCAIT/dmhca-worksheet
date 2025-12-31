@@ -158,7 +158,7 @@ function ChatContent() {
   }
 
   // Merge conversations with all users for complete list
-  const allUsersWithStatus = allUsers
+  const allUsersWithStatus = (allUsers || [])
     .filter(u => u.id !== user?.id) // Exclude current user
     .map(u => {
       const conv = conversations.find(c => c.id === u.id)

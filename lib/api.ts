@@ -90,17 +90,17 @@ export const authApi = {
 export const usersApi = {
   getUsers: async () => {
     const response = await api.get('/users')
-    return response.data
+    return response.data.data || response.data // Handle both { data: [...] } and direct array
   },
 
   getAll: async () => {
     const response = await api.get('/users')
-    return response.data
+    return response.data.data || response.data // Handle both { data: [...] } and direct array
   },
 
   getUser: async (id: string) => {
     const response = await api.get(`/users/${id}`)
-    return response.data
+    return response.data.data || response.data // Handle both { data: {...} } and direct object
   },
 
   create: async (data: any) => {
@@ -138,17 +138,17 @@ export const usersApi = {
 export const projectsApi = {
   getProjects: async () => {
     const response = await api.get('/projects')
-    return response.data
+    return response.data.data || response.data
   },
 
   getAll: async () => {
     const response = await api.get('/projects')
-    return response.data
+    return response.data.data || response.data
   },
 
   getProject: async (id: string) => {
     const response = await api.get(`/projects/${id}`)
-    return response.data
+    return response.data.data || response.data
   },
 
   create: async (data: any) => {
@@ -187,17 +187,17 @@ export const tasksApi = {
   getTasks: async (params?: any) => {
     const searchParams = new URLSearchParams(params || {})
     const response = await api.get(`/tasks?${searchParams}`)
-    return response.data
+    return response.data.data || response.data
   },
 
   getAll: async () => {
     const response = await api.get('/tasks')
-    return response.data
+    return response.data.data || response.data
   },
 
   getTask: async (id: string) => {
     const response = await api.get(`/tasks/${id}`)
-    return response.data
+    return response.data.data || response.data
   },
 
   create: async (data: any) => {
