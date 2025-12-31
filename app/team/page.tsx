@@ -97,7 +97,7 @@ function TeamContent() {
   const canManageTeam = user?.role === 'admin' || user?.role === 'team_lead'
 
   if (error) {
-    return <ErrorDisplay error={error} retry={refetch} title="Failed to load team members" />
+    return <ErrorDisplay error={error} title="Failed to load team members" />
   }
 
   return (
