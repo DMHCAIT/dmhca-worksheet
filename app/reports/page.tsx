@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useTasks, useUsers } from '@/lib/hooks'
-import { useAuth } from '@/lib/auth/AuthProvider'
+import { ProtectedRoute, useAuth } from '@/lib/auth/AuthProvider'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts'
 
 interface DailyActivity {
@@ -19,6 +19,14 @@ interface DailyActivity {
 }
 
 export default function ReportsPage() {
+  return (
+    <ProtectedRoute>
+      <ReportsContent />
+    </ProtectedRoute>
+  )
+}
+
+function ReportsContent() {
   const { user } = useAuth()
   
   // For employees and team leaders, default to their own name; for admin, default to 'all'
