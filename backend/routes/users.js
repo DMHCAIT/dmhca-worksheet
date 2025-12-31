@@ -11,10 +11,10 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     console.log('👥 GET /api/users - User:', req.user?.email, 'Role:', req.user?.role);
     
-    // Select fields - add department and phone for team management
+    // Select fields (department and phone will be added after migration)
     let query = supabase
       .from('profiles')
-      .select('id, email, full_name, role, team, department, phone, avatar_url, created_at, updated_at');
+      .select('id, email, full_name, role, team, avatar_url, created_at, updated_at');
 
     // Team leads and regular employees only see their team members
     if (req.user.role === 'team_lead' || req.user.role === 'employee') {
@@ -144,19 +144,24 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, team, role } = req.body;
+    const { full_name, team, role, department, phone } = req.body;
 
     // Users can only update their own profile, unless they're admin
     if (req.user.id !== id && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const updateData = { full_name };
+    const updateData = {};
+    
+    // Anyone can update their own name and phone
+    if (full_name !== undefined) updateData.full_name = full_name;
+    if (phone !== undefined) updateData.phone = phone;
 
-    // Only admin can change role and team
+    // Only admin can change role, team, and department
     if (req.user.role === 'admin') {
-      if (team) updateData.team = team;
-      if (role) updateData.role = role;
+      if (team !== undefined) updateData.team = team;
+      if (role !== undefined) updateData.role = role;
+      if (department !== undefined) updateData.department = department;
     }
 
     const { data: user, error } = await supabase
