@@ -9,6 +9,7 @@ const userRoutes = require('./routes/users');
 const projectRoutes = require('./routes/projects');
 const taskRoutes = require('./routes/tasks');
 const projectionRoutes = require('./routes/projections');
+const projectionSubtasksRoutes = require('./routes/projection-subtasks');
 const reportRoutes = require('./routes/reports');
 const notificationRoutes = require('./routes/notifications');
 
@@ -103,6 +104,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/projections', projectionRoutes);
+app.use('/api/projections', projectionSubtasksRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 

@@ -70,6 +70,7 @@ router.post('/', authMiddleware, async (req, res) => {
       week_end, 
       planned_hours, 
       goals,
+      projection_type = 'weekly',
       // Support frontend field names
       week_start_date,
       week_end_date,
@@ -94,12 +95,13 @@ router.post('/', authMiddleware, async (req, res) => {
     const { data: projection, error } = await supabase
       .from('work_projections')
       .insert({
-        title: projectTitle || `Week ${week_start_date || week_start}`,
+        title: projectTitle || `${projection_type === 'monthly' ? 'Monthly' : 'Weekly'} Projection ${week_start_date || week_start}`,
         description: description || notes || '',
         week_start: week_start_date || week_start,
         week_end: week_end_date || week_end,
         planned_hours: estimated_hours || planned_hours || 0,
         goals: goals || null,
+        projection_type,
         status,
         user_id: req.user.id,
         team: req.user.team || 'General'

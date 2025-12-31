@@ -92,8 +92,10 @@ export interface Report {
 
 export interface WorkProjection {
   id: number
+  title?: string
   week_start_date: string
   week_end_date: string
+  projection_type?: 'weekly' | 'monthly'
   project_id: number
   user_id: string
   team: string

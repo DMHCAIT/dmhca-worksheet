@@ -10,7 +10,7 @@ import AnalyticsDashboard from '@/components/projections/AnalyticsDashboard'
 import { projectsApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { Project } from '@/types/entities'
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns'
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, addDays } from 'date-fns'
 import { Plus, LayoutGrid, LayoutList, BarChart3 } from 'lucide-react'
 import { 
   useProjections, 
@@ -30,10 +30,13 @@ export default function ProjectionsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week')
   const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid')
+  const [projectionType, setProjectionType] = useState<'weekly' | 'monthly'>('weekly')
   const [newProjection, setNewProjection] = useState({
+    title: '',
     week_start_date: '',
+    week_end_date: '',
+    projection_type: 'weekly' as 'weekly' | 'monthly',
     project_id: '',
-    estimated_hours: '',
     notes: ''
   })
   const { user } = useAuth()
@@ -50,28 +53,40 @@ export default function ProjectionsPage() {
   const updateActualHoursMutation = useUpdateActualHours()
   const deleteProjectionMutation = useDeleteProjection()
 
+  const calculateDateRange = () => {
+    const startDate = new Date(newProjection.week_start_date)
+    if (newProjection.projection_type === 'weekly') {
+      // Monday to Saturday (6 days)
+      const endDate = addDays(startDate, 5)
+      return endDate.toISOString().split('T')[0]
+    } else {
+      // Month end
+      const endDate = endOfMonth(startDate)
+      return endDate.toISOString().split('T')[0]
+    }
+  }
+
   const handleCreateProjection = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
 
-    const weekStartDate = new Date(newProjection.week_start_date)
-    const weekEndDate = new Date(weekStartDate)
-    weekEndDate.setDate(weekStartDate.getDate() + 6)
+    const weekEndDate = calculateDateRange()
 
     const projectionData = {
       ...newProjection,
-      week_end_date: weekEndDate.toISOString().split('T')[0],
+      week_end_date: weekEndDate,
       user_id: user.id,
       team: user.department || 'General',
-      estimated_hours: parseInt(newProjection.estimated_hours)
     }
 
     await createProjectionMutation.mutateAsync(projectionData)
     setShowCreateModal(false)
     setNewProjection({
+      title: '',
       week_start_date: '',
+      week_end_date: '',
+      projection_type: 'weekly',
       project_id: '',
-      estimated_hours: '',
       notes: ''
     })
   }
@@ -117,18 +132,6 @@ export default function ProjectionsPage() {
     }))
   }
 
-  const getTotalEstimatedHours = (projectionsData: any[]) => {
-    return projectionsData.reduce((total, p) => total + p.estimated_hours, 0)
-  }
-
-  const getTotalActualHours = (projectionsData: any[]) => {
-    return projectionsData.reduce((total, p) => total + (p.actual_hours || 0), 0)
-  }
-
-  const getVariance = (estimated: number, actual: number) => {
-    return actual - estimated
-  }
-
   if (isLoading) {
     return (
       <DashboardLayout>
@@ -140,9 +143,6 @@ export default function ProjectionsPage() {
   }
 
   const filteredProjections = getFilteredProjections()
-  const totalEstimated = getTotalEstimatedHours(filteredProjections)
-  const totalActual = getTotalActualHours(filteredProjections)
-  const variance = getVariance(totalEstimated, totalActual)
 
   return (
     <DashboardLayout>
@@ -229,19 +229,24 @@ export default function ProjectionsPage() {
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Estimated Hours</h3>
-              <p className="text-3xl font-bold text-blue-600">{totalEstimated}h</p>
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow p-6 border border-blue-200">
+              <h3 className="text-lg font-medium text-blue-900 mb-2">Total Projections</h3>
+              <p className="text-3xl font-bold text-blue-600">{filteredProjections.length}</p>
+              <p className="text-sm text-blue-600 mt-1">{viewMode === 'week' ? 'This Week' : 'This Month'}</p>
             </div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Actual Hours</h3>
-              <p className="text-3xl font-bold text-green-600">{totalActual}h</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Variance</h3>
-              <p className={`text-3xl font-bold ${variance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {variance >= 0 ? '+' : ''}{variance}h
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow p-6 border border-green-200">
+              <h3 className="text-lg font-medium text-green-900 mb-2">Weekly Projections</h3>
+              <p className="text-3xl font-bold text-green-600">
+                {filteredProjections.filter((p: any) => p.projection_type === 'weekly').length}
               </p>
+              <p className="text-sm text-green-600 mt-1">Monday - Saturday</p>
+            </div>
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow p-6 border border-purple-200">
+              <h3 className="text-lg font-medium text-purple-900 mb-2">Monthly Projections</h3>
+              <p className="text-3xl font-bold text-purple-600">
+                {filteredProjections.filter((p: any) => p.projection_type === 'monthly').length}
+              </p>
+              <p className="text-sm text-purple-600 mt-1">Full Month Duration</p>
             </div>
           </div>
 
@@ -297,7 +302,49 @@ export default function ProjectionsPage() {
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Add Work Projection</h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Week Start Date</label>
+                      <label className="block text-sm font-medium text-gray-700">Projection Title</label>
+                      <input
+                        type="text"
+                        required
+                        className="input mt-1"
+                        value={newProjection.title}
+                        onChange={(e) => setNewProjection({ ...newProjection, title: e.target.value })}
+                        placeholder="e.g., Website Redesign Sprint"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Projection Type</label>
+                      <div className="mt-2 grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setNewProjection({ ...newProjection, projection_type: 'weekly' })}
+                          className={`px-4 py-3 rounded-lg border-2 transition-all ${
+                            newProjection.projection_type === 'weekly'
+                              ? 'border-blue-600 bg-blue-50 text-blue-700'
+                              : 'border-gray-300 hover:border-gray-400'
+                          }`}
+                        >
+                          <div className="font-semibold">Weekly</div>
+                          <div className="text-xs text-gray-500">Mon - Sat</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewProjection({ ...newProjection, projection_type: 'monthly' })}
+                          className={`px-4 py-3 rounded-lg border-2 transition-all ${
+                            newProjection.projection_type === 'monthly'
+                              ? 'border-blue-600 bg-blue-50 text-blue-700'
+                              : 'border-gray-300 hover:border-gray-400'
+                          }`}
+                        >
+                          <div className="font-semibold">Monthly</div>
+                          <div className="text-xs text-gray-500">Full Month</div>
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        {newProjection.projection_type === 'weekly' ? 'Week Start Date (Monday)' : 'Month Start Date'}
+                      </label>
                       <input
                         type="date"
                         required
@@ -305,48 +352,44 @@ export default function ProjectionsPage() {
                         value={newProjection.week_start_date}
                         onChange={(e) => setNewProjection({ ...newProjection, week_start_date: e.target.value })}
                       />
+                      {newProjection.week_start_date && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          End Date: {calculateDateRange()}
+                          {newProjection.projection_type === 'weekly' && ' (Saturday)'}
+                        </p>
+                      )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Project</label>
+                      <label className="block text-sm font-medium text-gray-700">Related Project (Optional)</label>
                       <select
-                        required
                         className="input mt-1"
                         value={newProjection.project_id}
                         onChange={(e) => setNewProjection({ ...newProjection, project_id: e.target.value })}
                       >
-                        <option value="">Select Project</option>
+                        <option value="">None - General Projection</option>
                         {projects.map((project) => (
                           <option key={project.id} value={project.id}>{project.name}</option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Estimated Hours</label>
-                      <input
-                        type="number"
-                        required
-                        min="1"
-                        max="40"
-                        className="input mt-1"
-                        value={newProjection.estimated_hours}
-                        onChange={(e) => setNewProjection({ ...newProjection, estimated_hours: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Notes</label>
+                      <label className="block text-sm font-medium text-gray-700">Description & Goals</label>
                       <textarea
                         className="input mt-1"
-                        rows={3}
+                        rows={4}
                         value={newProjection.notes}
                         onChange={(e) => setNewProjection({ ...newProjection, notes: e.target.value })}
-                        placeholder="Additional details about this projection..."
+                        placeholder="Describe the projection goals and expected deliverables..."
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        You can add detailed breakdown and assign team members after creating the projection
+                      </p>
                     </div>
                   </div>
                 </div>
                 <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                   <button type="submit" className="btn btn-primary sm:ml-3">
-                    Add Projection
+                    Create Projection
                   </button>
                   <button
                     type="button"
