@@ -19,8 +19,10 @@ interface DailyActivity {
 }
 
 export default function ReportsPage() {
-  const [selectedEmployee, setSelectedEmployee] = useState<string>('')
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('daily')
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('')
+  const [filterDateTo, setFilterDateTo] = useState<string>('')
   
   const { user } = useAuth()
   const { data: tasks = [], isLoading } = useTasks()
@@ -33,6 +35,23 @@ export default function ReportsPage() {
     tasks.forEach(task => {
       const updatedDate = new Date(task.updated_at)
       const dateKey = updatedDate.toISOString().split('T')[0]
+      
+      // Apply date filter
+      if (filterDateFrom || filterDateTo) {
+        const taskDate = new Date(dateKey)
+        
+        if (filterDateFrom) {
+          const fromDate = new Date(filterDateFrom)
+          fromDate.setHours(0, 0, 0, 0)
+          if (taskDate < fromDate) return
+        }
+        
+        if (filterDateTo) {
+          const toDate = new Date(filterDateTo)
+          toDate.setHours(23, 59, 59, 999)
+          if (taskDate > toDate) return
+        }
+      }
       
       // Find the assigned user
       const assignedUser = users.find(u => u.id === task.assigned_to)
@@ -75,7 +94,7 @@ export default function ReportsPage() {
     })
     
     return reports
-  }, [tasks, users])
+  }, [tasks, users, filterDateFrom, filterDateTo])
 
   // Generate weekly summary
   const weeklyReports = useMemo(() => {
@@ -149,11 +168,88 @@ export default function ReportsPage() {
   }
 
   // Filter data based on selected employee
-  const currentEmployee = selectedEmployee || (user?.role === 'employee' ? user.full_name : Object.keys(dailyReports)[0] || '')
+  const currentEmployee = selectedEmployee === 'all' 
+    ? '' 
+    : selectedEmployee || (user?.role === 'employee' ? user.full_name : '')
   
-  const filteredDailyData = dailyReports[currentEmployee] || []
-  const filteredWeeklyData = weeklyReports[currentEmployee] || []
-  const filteredMonthlyData = monthlyReports[currentEmployee] || []
+  // Get combined data for "All" employees
+  const getAllEmployeesData = (dataType: 'daily' | 'weekly' | 'monthly') => {
+    if (dataType === 'daily') {
+      const allDays: DailyActivity[] = []
+      Object.values(dailyReports).forEach(employeeDays => {
+        allDays.push(...employeeDays)
+      })
+      // Group by date
+      const grouped: Record<string, DailyActivity> = {}
+      allDays.forEach(day => {
+        if (!grouped[day.date]) {
+          grouped[day.date] = {
+            date: day.date,
+            tasksCompleted: 0,
+            tasksUpdated: 0,
+            employee: 'All Employees',
+            tasks: []
+          }
+        }
+        grouped[day.date].tasksCompleted += day.tasksCompleted
+        grouped[day.date].tasksUpdated += day.tasksUpdated
+        grouped[day.date].tasks.push(...day.tasks)
+      })
+      return Object.values(grouped).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    } else if (dataType === 'weekly') {
+      const allWeeks: any[] = []
+      Object.values(weeklyReports).forEach(employeeWeeks => {
+        allWeeks.push(...employeeWeeks)
+      })
+      // Group by week
+      const grouped: Record<string, any> = {}
+      allWeeks.forEach(week => {
+        if (!grouped[week.week]) {
+          grouped[week.week] = {
+            week: week.week,
+            tasksCompleted: 0,
+            tasksUpdated: 0,
+            days: []
+          }
+        }
+        grouped[week.week].tasksCompleted += week.tasksCompleted
+        grouped[week.week].tasksUpdated += week.tasksUpdated
+        grouped[week.week].days.push(...week.days)
+      })
+      return Object.values(grouped)
+    } else {
+      const allMonths: any[] = []
+      Object.values(monthlyReports).forEach(employeeMonths => {
+        allMonths.push(...employeeMonths)
+      })
+      // Group by month
+      const grouped: Record<string, any> = {}
+      allMonths.forEach(month => {
+        if (!grouped[month.month]) {
+          grouped[month.month] = {
+            month: month.month,
+            tasksCompleted: 0,
+            tasksUpdated: 0,
+            days: []
+          }
+        }
+        grouped[month.month].tasksCompleted += month.tasksCompleted
+        grouped[month.month].tasksUpdated += month.tasksUpdated
+        grouped[month.month].days.push(...month.days)
+      })
+      return Object.values(grouped)
+    }
+  }
+  
+  const filteredDailyData = selectedEmployee === 'all' 
+    ? getAllEmployeesData('daily') as DailyActivity[]
+    : dailyReports[currentEmployee] || []
+  const filteredWeeklyData = selectedEmployee === 'all'
+    ? getAllEmployeesData('weekly')
+    : weeklyReports[currentEmployee] || []
+  const filteredMonthlyData = selectedEmployee === 'all'
+    ? getAllEmployeesData('monthly')
+    : monthlyReports[currentEmployee] || []
 
   if (isLoading) {
     return (
@@ -175,17 +271,18 @@ export default function ReportsPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {(user?.role === 'admin' || user?.role === 'team_lead') && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Employee
               </label>
               <select
-                value={currentEmployee}
+                value={selectedEmployee}
                 onChange={(e) => setSelectedEmployee(e.target.value)}
                 className="input"
               >
+                <option value="all">All Employees</option>
                 {Object.keys(dailyReports).map(employee => (
                   <option key={employee} value={employee}>
                     {employee}
@@ -212,6 +309,30 @@ export default function ReportsPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date From
+            </label>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Date To
+            </label>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Export Options
             </label>
             <button className="btn btn-secondary w-full">
@@ -219,6 +340,43 @@ export default function ReportsPage() {
             </button>
           </div>
         </div>
+        
+        {(filterDateFrom || filterDateTo) && (
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-sm text-gray-600">Active Filters:</span>
+            {filterDateFrom && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                From: {new Date(filterDateFrom).toLocaleDateString()}
+                <button
+                  onClick={() => setFilterDateFrom('')}
+                  className="ml-1 hover:text-blue-900"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {filterDateTo && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                To: {new Date(filterDateTo).toLocaleDateString()}
+                <button
+                  onClick={() => setFilterDateTo('')}
+                  className="ml-1 hover:text-blue-900"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            <button
+              onClick={() => {
+                setFilterDateFrom('')
+                setFilterDateTo('')
+              }}
+              className="text-sm text-gray-600 hover:text-gray-800 underline"
+            >
+              Clear All Filters
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Summary Cards */}
