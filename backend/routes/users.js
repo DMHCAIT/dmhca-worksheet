@@ -31,6 +31,13 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 
     console.log('✅ Users retrieved:', users?.length || 0);
+    console.log('📊 Sample user data:', users?.[0] ? { 
+      id: users[0].id, 
+      name: users[0].full_name,
+      team: users[0].team,
+      role: users[0].role 
+    } : 'No users');
+    
     res.json({ 
       success: true, 
       data: users || [], 

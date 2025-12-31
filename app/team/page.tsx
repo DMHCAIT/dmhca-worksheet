@@ -30,8 +30,9 @@ function TeamContent() {
     phone: ''
   })
 
-  const { data: users = [], isLoading, error, refetch } = useUsers()
-  const createUser = useCreateUser()
+  const { data: users = [], isLoading, error, refetch } = useUsers()  
+  // Debug log to check user data
+  console.log('👥 Team page users:', users?.map(u => ({ name: u.full_name, team: u.team, dept: (u as any).department })))  const createUser = useCreateUser()
   const updateUser = useUpdateUser()
 
   // Get unique departments from users
