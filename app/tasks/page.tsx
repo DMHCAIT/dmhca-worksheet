@@ -11,7 +11,7 @@ import { CreateTaskRequest, UpdateTaskRequest, Task, TaskComment, TaskAttachment
 import { tasksApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { uploadTaskFile, deleteTaskFile } from '@/lib/supabase/client'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 interface ProjectionSubtask {
   id: number
@@ -39,9 +39,11 @@ interface ProjectionSubtask {
 
 function TasksContent() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [viewingTask, setViewingTask] = useState<Task | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [editingSubtask, setEditingSubtask] = useState<ProjectionSubtask | null>(null)
   const [filterDepartment, setFilterDepartment] = useState<string>('')
   const [filterAssignee, setFilterAssignee] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
@@ -210,6 +212,37 @@ function TasksContent() {
   const handleDeleteTask = async (id: number) => {
     if (confirm('Are you sure you want to delete this task?')) {
       await deleteTask.mutateAsync(id)
+    }
+  }
+
+  const handleUpdateSubtask = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingSubtask) return
+
+    try {
+      const token = localStorage.getItem('authToken')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projections/subtasks/${editingSubtask.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: editingSubtask.status,
+          actual_hours: editingSubtask.actual_hours
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update subtask')
+      }
+
+      toast.success('Subtask updated successfully')
+      setEditingSubtask(null)
+      // Refetch subtasks
+      queryClient.invalidateQueries({ queryKey: ['my-subtasks'] })
+    } catch (error) {
+      toast.error('Failed to update subtask')
     }
   }
 
@@ -683,6 +716,9 @@ function TasksContent() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Deadline
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
@@ -770,6 +806,14 @@ function TasksContent() {
                       ) : (
                         <span className="text-sm text-gray-400">No deadline</span>
                       )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => setEditingSubtask(subtask)}
+                        className="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                      >
+                        Update
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -1253,6 +1297,77 @@ function TasksContent() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Subtask Modal */}
+      {editingSubtask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <h2 className="text-2xl font-bold mb-6">Update Subtask</h2>
+            <form onSubmit={handleUpdateSubtask}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Subtask
+                  </label>
+                  <div className="text-sm font-medium text-gray-900 p-2 bg-gray-50 rounded">
+                    {editingSubtask.title}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status *
+                  </label>
+                  <select
+                    value={editingSubtask.status}
+                    onChange={(e) => setEditingSubtask({ ...editingSubtask, status: e.target.value })}
+                    className="input"
+                    required
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Actual Hours *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={editingSubtask.actual_hours}
+                    onChange={(e) => setEditingSubtask({ ...editingSubtask, actual_hours: parseFloat(e.target.value) || 0 })}
+                    className="input"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Estimated: {editingSubtask.estimated_hours || 0}h
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setEditingSubtask(null)}
+                  className="btn btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary flex-1"
+                >
+                  Update
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
