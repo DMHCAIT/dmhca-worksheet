@@ -11,10 +11,10 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     console.log('👥 GET /api/users - User:', req.user?.email, 'Role:', req.user?.role);
     
-    // Select fields (department and phone will be added after migration)
+    // Select all user fields including department and phone
     let query = supabase
       .from('profiles')
-      .select('id, email, full_name, role, team, avatar_url, created_at, updated_at');
+      .select('id, email, full_name, role, team, department, phone, avatar_url, created_at, updated_at');
 
     // Team leads and regular employees see their team members
     // If user has no team, they can see all users (to avoid empty list)
@@ -243,18 +243,69 @@ router.put('/change-password', authMiddleware, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
-    // This is simplified - in production you'd verify the current password
-    const { error } = await supabase.auth.admin.updateUserById(req.user.id, {
-      password: newPassword
-    });
-
-    if (error) {
-      return res.status(400).json({ error: error.message });
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Both current and new password are required' }
+      });
     }
 
-    res.json({ message: 'Password changed successfully' });
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'New password must be at least 6 characters' }
+      });
+    }
+
+    // Get user's current password hash
+    const { data: userData, error: userError } = await supabase
+      .from('profiles')
+      .select('password_hash')
+      .eq('id', req.user.id)
+      .single();
+
+    if (userError || !userData) {
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'USER_NOT_FOUND', message: 'User not found' }
+      });
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, userData.password_hash);
+    if (!isValidPassword) {
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'INVALID_PASSWORD', message: 'Current password is incorrect' }
+      });
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update password in database
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ password_hash: newPasswordHash })
+      .eq('id', req.user.id);
+
+    if (updateError) {
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'UPDATE_ERROR', message: updateError.message }
+      });
+    }
+
+    res.json({ 
+      success: true,
+      message: 'Password changed successfully' 
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error changing password:', error);
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message }
+    });
   }
 });
 
