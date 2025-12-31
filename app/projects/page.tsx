@@ -22,6 +22,14 @@ function ProjectsContent() {
   const { data: projects = [], isLoading, error, refetch } = useProjects()
   const createProject = useCreateProject()
 
+  // Calculate stats
+  const stats = {
+    total: projects.length,
+    active: projects.filter(p => p.status === 'active').length,
+    completed: projects.filter(p => p.status === 'completed').length,
+    onHold: projects.filter(p => p.status === 'on_hold').length
+  }
+
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault()
     await createProject.mutateAsync(newProject)
@@ -56,39 +64,158 @@ function ProjectsContent() {
         </button>
       </div>
 
+      {/* Stats Overview */}
+      {!isLoading && projects.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600">Total Projects</p>
+                <p className="text-2xl font-bold text-blue-900">{stats.total}</p>
+              </div>
+              <div className="p-3 bg-blue-500 rounded-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600">Active</p>
+                <p className="text-2xl font-bold text-green-900">{stats.active}</p>
+              </div>
+              <div className="p-3 bg-green-500 rounded-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-600">Completed</p>
+                <p className="text-2xl font-bold text-purple-900">{stats.completed}</p>
+              </div>
+              <div className="p-3 bg-purple-500 rounded-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-4 border border-yellow-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-yellow-600">On Hold</p>
+                <p className="text-2xl font-bold text-yellow-900">{stats.onHold}</p>
+              </div>
+              <div className="p-3 bg-yellow-500 rounded-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Projects Grid */}
       {isLoading ? (
         <TableSkeleton rows={6} columns={5} />
       ) : projects.length === 0 ? (
-        <div className="text-center py-12">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
-          <p className="text-gray-500">Get started by creating your first project.</p>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <div className="flex justify-center mb-4">
+            <div className="p-4 bg-blue-100 rounded-full">
+              <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No projects yet</h3>
+          <p className="text-gray-600 mb-6">Get started by creating your first project to organize your team's work.</p>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn btn-primary inline-flex items-center space-x-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            <span>Create Your First Project</span>
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
-            <div key={project.id} className="bg-white rounded-lg shadow p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
-                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                  project.status === 'active' ? 'bg-green-100 text-green-800' :
-                  project.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {project.status}
-                </span>
-              </div>
-              <p className="text-gray-600 text-sm mb-4 line-clamp-2">{project.description}</p>
-              <div className="text-xs text-gray-500">
-                {project.start_date && (
-                  <p>Started: {new Date(project.start_date).toLocaleDateString()}</p>
-                )}
-                {project.deadline && (
-                  <p>Deadline: {new Date(project.deadline).toLocaleDateString()}</p>
-                )}
-                {project.end_date && (
-                  <p>Ends: {new Date(project.end_date).toLocaleDateString()}</p>
-                )}
+            <div 
+              key={project.id} 
+              className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100"
+            >
+              {/* Status bar */}
+              <div className={`h-2 ${
+                project.status === 'active' ? 'bg-gradient-to-r from-green-400 to-green-600' :
+                project.status === 'completed' ? 'bg-gradient-to-r from-blue-400 to-blue-600' :
+                'bg-gradient-to-r from-yellow-400 to-yellow-600'
+              }`} />
+              
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="text-xl font-bold text-gray-900 flex-1">{project.name}</h3>
+                  <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                    project.status === 'active' ? 'bg-green-100 text-green-800' :
+                    project.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {project.status?.replace('_', ' ')}
+                  </span>
+                </div>
+                
+                <p className="text-gray-600 text-sm mb-4 line-clamp-3 min-h-[60px]">{project.description}</p>
+                
+                {/* Dates */}
+                <div className="space-y-2 mb-4 text-xs text-gray-500">
+                  {project.start_date && (
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>Started: {new Date(project.start_date).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {project.deadline && (
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Deadline: {new Date(project.deadline).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                  {project.end_date && (
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Ends: {new Date(project.end_date).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-4 border-t border-gray-100">
+                  <button className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    View Details
+                  </button>
+                  <button className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
