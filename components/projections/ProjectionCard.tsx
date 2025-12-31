@@ -50,7 +50,7 @@ export default function ProjectionCard({
   const { data: subtasks = [], isLoading: subtasksLoading } = useQuery({
     queryKey: ['projection-subtasks', projection.id],
     queryFn: async () => {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem('authToken')
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projections/${projection.id}/subtasks`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -66,7 +66,7 @@ export default function ProjectionCard({
   // Create subtask mutation
   const createSubtaskMutation = useMutation({
     mutationFn: async (subtaskData: any) => {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem('authToken')
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projections/${projection.id}/subtasks`, {
         method: 'POST',
         headers: {
@@ -94,7 +94,7 @@ export default function ProjectionCard({
   // Update subtask mutation
   const updateSubtaskMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number, data: any }) => {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem('authToken')
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projections/subtasks/${id}`, {
         method: 'PUT',
         headers: {
@@ -113,7 +113,7 @@ export default function ProjectionCard({
   // Delete subtask mutation
   const deleteSubtaskMutation = useMutation({
     mutationFn: async (id: number) => {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem('authToken')
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projections/subtasks/${id}`, {
         method: 'DELETE',
         headers: {

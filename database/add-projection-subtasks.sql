@@ -28,6 +28,12 @@ CREATE INDEX IF NOT EXISTS idx_projection_subtasks_status ON public.projection_s
 -- Enable Row Level Security
 ALTER TABLE public.projection_subtasks ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view relevant projection subtasks" ON public.projection_subtasks;
+DROP POLICY IF EXISTS "Projection owners and admins can create subtasks" ON public.projection_subtasks;
+DROP POLICY IF EXISTS "Relevant users can update subtasks" ON public.projection_subtasks;
+DROP POLICY IF EXISTS "Projection owners and admins can delete subtasks" ON public.projection_subtasks;
+
 -- RLS Policies for projection_subtasks
 CREATE POLICY "Users can view relevant projection subtasks" ON public.projection_subtasks
     FOR SELECT USING (
@@ -94,6 +100,9 @@ BEGIN
     RETURN NEW;
 END;
 $$ language 'plpgsql';
+
+-- Drop existing trigger if it exists
+DROP TRIGGER IF EXISTS update_projection_subtasks_updated_at ON public.projection_subtasks;
 
 CREATE TRIGGER update_projection_subtasks_updated_at BEFORE UPDATE
     ON public.projection_subtasks FOR EACH ROW
