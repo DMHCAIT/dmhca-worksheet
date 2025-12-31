@@ -6,25 +6,18 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all users (all authenticated users can see team members)
+// Get all users (all authenticated users can see all users - needed for chat)
 router.get('/', authMiddleware, async (req, res) => {
   try {
     console.log('👥 GET /api/users - User:', req.user?.email, 'Role:', req.user?.role);
     
     // Select all user fields including department and phone
-    let query = supabase
+    // NO TEAM FILTERING - All users can see all users for chat functionality
+    const query = supabase
       .from('profiles')
       .select('id, email, full_name, role, team, department, phone, avatar_url, created_at, updated_at');
 
-    // Team leads and regular employees see their team members
-    // If user has no team, they can see all users (to avoid empty list)
-    if ((req.user.role === 'team_lead' || req.user.role === 'employee') && req.user.team) {
-      query = query.eq('team', req.user.team);
-      console.log('🔍 Filtering users by team:', req.user.team);
-    } else if ((req.user.role === 'team_lead' || req.user.role === 'employee') && !req.user.team) {
-      console.log('⚠️ User has no team assigned, showing all users');
-    }
-    // Admins see all users (no filter)
+    console.log('📋 Showing all users (no team restrictions for chat)');
 
     const { data: users, error } = await query;
 
