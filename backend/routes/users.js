@@ -16,10 +16,13 @@ router.get('/', authMiddleware, async (req, res) => {
       .from('profiles')
       .select('id, email, full_name, role, team, avatar_url, created_at, updated_at');
 
-    // Team leads and regular employees only see their team members
-    if (req.user.role === 'team_lead' || req.user.role === 'employee') {
+    // Team leads and regular employees see their team members
+    // If user has no team, they can see all users (to avoid empty list)
+    if ((req.user.role === 'team_lead' || req.user.role === 'employee') && req.user.team) {
       query = query.eq('team', req.user.team);
       console.log('🔍 Filtering users by team:', req.user.team);
+    } else if ((req.user.role === 'team_lead' || req.user.role === 'employee') && !req.user.team) {
+      console.log('⚠️ User has no team assigned, showing all users');
     }
     // Admins see all users (no filter)
 

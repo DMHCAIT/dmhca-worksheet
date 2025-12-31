@@ -19,10 +19,12 @@ router.get('/conversations', authMiddleware, async (req, res) => {
       .select('id, full_name, email, avatar_url, role, team')
       .neq('id', userId);
     
-    // Filter by team for non-admin users
-    if (userRole === 'employee' || userRole === 'team_lead') {
+    // Filter by team for non-admin users (only if they have a team)
+    if ((userRole === 'employee' || userRole === 'team_lead') && userTeam) {
       usersQuery = usersQuery.eq('team', userTeam);
       console.log('🔍 Filtering conversations by team:', userTeam);
+    } else if ((userRole === 'employee' || userRole === 'team_lead') && !userTeam) {
+      console.log('⚠️ User has no team, showing all users');
     }
     
     const { data: users, error: usersError } = await usersQuery;
