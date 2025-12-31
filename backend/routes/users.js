@@ -11,11 +11,11 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     console.log('👥 GET /api/users - User:', req.user?.email, 'Role:', req.user?.role);
     
-    // Select all user fields including department and phone
+    // Select all user fields
     // NO TEAM FILTERING - All users can see all users for chat functionality
     const query = supabase
       .from('profiles')
-      .select('id, email, full_name, role, team, department, phone, avatar_url, created_at, updated_at');
+      .select('id, email, full_name, role, team, avatar_url, created_at, updated_at');
 
     console.log('📋 Showing all users (no team restrictions for chat)');
 
@@ -147,7 +147,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, team, role, department, phone } = req.body;
+    const { full_name, team, role } = req.body;
 
     // Users can only update their own profile, unless they're admin
     if (req.user.id !== id && req.user.role !== 'admin') {
@@ -156,15 +156,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     const updateData = {};
     
-    // Anyone can update their own name and phone
+    // Anyone can update their own name
     if (full_name !== undefined) updateData.full_name = full_name;
-    if (phone !== undefined) updateData.phone = phone;
 
-    // Only admin can change role, team, and department
+    // Only admin can change role and team
     if (req.user.role === 'admin') {
       if (team !== undefined) updateData.team = team;
       if (role !== undefined) updateData.role = role;
-      if (department !== undefined) updateData.department = department;
     }
 
     const { data: user, error } = await supabase

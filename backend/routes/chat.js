@@ -16,7 +16,7 @@ router.get('/conversations', authMiddleware, async (req, res) => {
     // Get all users (excluding self) - NO TEAM RESTRICTIONS FOR CHAT
     const usersQuery = supabase
       .from('profiles')
-      .select('id, full_name, email, avatar_url, role, team, department')
+      .select('id, full_name, email, avatar_url, role, team')
       .neq('id', userId);
     
     console.log('💬 Showing all users for chat - no restrictions');
