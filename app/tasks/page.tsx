@@ -658,7 +658,7 @@ function TasksContent() {
       <div className="mt-8">
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
           <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-            📊 Projection Subtasks Assigned to You
+            📊 {user?.role === 'admin' ? 'All Projection Subtasks' : 'Projection Subtasks Assigned to You'}
           </span>
         </h2>
         
@@ -666,7 +666,7 @@ function TasksContent() {
           <TableSkeleton />
         ) : subtasks.length === 0 ? (
           <div className="card text-center py-8">
-            <p className="text-gray-500">No projection subtasks assigned to you</p>
+            <p className="text-gray-500">{user?.role === 'admin' ? 'No projection subtasks found' : 'No projection subtasks assigned to you'}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -679,6 +679,11 @@ function TasksContent() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Projection
                   </th>
+                  {user?.role === 'admin' && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Assigned To
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Hours (Est / Actual)
                   </th>
@@ -719,6 +724,18 @@ function TasksContent() {
                         </span>
                       </div>
                     </td>
+                    {user?.role === 'admin' && (
+                      <td className="px-6 py-4">
+                        <div className="text-sm">
+                          <div className="text-gray-900 font-medium">
+                            {subtask.assigned_user?.full_name || 'Unassigned'}
+                          </div>
+                          {subtask.assigned_user?.email && (
+                            <div className="text-xs text-gray-500">{subtask.assigned_user.email}</div>
+                          )}
+                        </div>
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       <div className="text-sm">
                         <span className="font-medium text-gray-900">{subtask.estimated_hours || 0}h</span>

@@ -197,8 +197,10 @@ router.delete('/subtasks/:id', authMiddleware, async (req, res) => {
 router.get('/my-subtasks', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
+    const userRole = req.user.role;
     
-    const { data: subtasks, error } = await supabase
+    // If admin, get all subtasks; otherwise only assigned to user
+    let query = supabase
       .from('projection_subtasks')
       .select(`
         *,
@@ -212,8 +214,14 @@ router.get('/my-subtasks', authMiddleware, async (req, res) => {
         ),
         assigned_user:profiles!assigned_to(id, full_name, email, avatar_url),
         creator:profiles!created_by(id, full_name, email)
-      `)
-      .eq('assigned_to', userId)
+      `);
+    
+    // Only filter by assigned_to for non-admin users
+    if (userRole !== 'admin') {
+      query = query.eq('assigned_to', userId);
+    }
+    
+    const { data: subtasks, error } = await query
       .order('deadline', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
 
