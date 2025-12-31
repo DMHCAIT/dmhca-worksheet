@@ -193,4 +193,50 @@ router.delete('/subtasks/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Get all subtasks assigned to the current user
+router.get('/my-subtasks', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const { data: subtasks, error } = await supabase
+      .from('projection_subtasks')
+      .select(`
+        *,
+        projection:work_projections!projection_id(
+          id,
+          title,
+          project_name,
+          start_date,
+          end_date,
+          projection_type
+        ),
+        assigned_user:profiles!assigned_to(id, full_name, email, avatar_url),
+        creator:profiles!created_by(id, full_name, email)
+      `)
+      .eq('assigned_to', userId)
+      .order('deadline', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching user subtasks:', error);
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    res.json({ 
+      success: true,
+      data: subtasks || [],
+      message: 'User subtasks retrieved successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Server error fetching user subtasks:', error);
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
 module.exports = router;

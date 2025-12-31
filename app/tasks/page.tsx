@@ -11,6 +11,31 @@ import { CreateTaskRequest, UpdateTaskRequest, Task, TaskComment, TaskAttachment
 import { tasksApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { uploadTaskFile, deleteTaskFile } from '@/lib/supabase/client'
+import { useQuery } from '@tanstack/react-query'
+
+interface ProjectionSubtask {
+  id: number
+  title: string
+  description: string
+  status: string
+  priority: string
+  estimated_hours: number
+  actual_hours: number
+  deadline: string
+  projection: {
+    id: number
+    title: string
+    project_name: string
+    start_date: string
+    end_date: string
+    projection_type: string
+  }
+  assigned_user: {
+    id: string
+    full_name: string
+    email: string
+  }
+}
 
 function TasksContent() {
   const { user } = useAuth()
@@ -43,6 +68,22 @@ function TasksContent() {
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
   const deleteTask = useDeleteTask()
+
+  // Fetch assigned projection subtasks
+  const { data: subtasks = [], isLoading: subtasksLoading } = useQuery<ProjectionSubtask[]>({
+    queryKey: ['my-subtasks'],
+    queryFn: async () => {
+      const token = localStorage.getItem('authToken')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projections/my-subtasks`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      const data = await response.json()
+      return data.data || []
+    },
+  })
 
   // Get unique departments from users
   const departments = useMemo(() => {
@@ -612,6 +653,127 @@ function TasksContent() {
           </table>
         </div>
       )}
+
+      {/* Projection Subtasks Section */}
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+          <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            📊 Projection Subtasks Assigned to You
+          </span>
+        </h2>
+        
+        {subtasksLoading ? (
+          <TableSkeleton />
+        ) : subtasks.length === 0 ? (
+          <div className="card text-center py-8">
+            <p className="text-gray-500">No projection subtasks assigned to you</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Subtask
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Projection
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Hours (Est / Actual)
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Priority
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Deadline
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {subtasks.map((subtask) => (
+                  <tr key={subtask.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">{subtask.title}</div>
+                      {subtask.description && (
+                        <div className="text-sm text-gray-500 truncate max-w-xs">{subtask.description}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">
+                        {subtask.projection?.title || subtask.projection?.project_name || 'Untitled'}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`px-2 py-0.5 text-xs font-semibold rounded ${
+                          subtask.projection?.projection_type === 'weekly' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {subtask.projection?.projection_type === 'weekly' ? '📊 Weekly' : '📅 Monthly'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(subtask.projection?.start_date).toLocaleDateString()} - {new Date(subtask.projection?.end_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm">
+                        <span className="font-medium text-gray-900">{subtask.estimated_hours || 0}h</span>
+                        <span className="text-gray-400"> / </span>
+                        <span className={subtask.actual_hours > (subtask.estimated_hours || 0) ? 'text-red-600 font-medium' : 'text-gray-600'}>
+                          {subtask.actual_hours || 0}h
+                        </span>
+                      </div>
+                      {subtask.actual_hours > (subtask.estimated_hours || 0) && (
+                        <div className="text-xs text-red-500 mt-1">Over estimate</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        subtask.priority === 'high' ? 'bg-red-100 text-red-800' :
+                        subtask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {subtask.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        subtask.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        subtask.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {subtask.status.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {subtask.deadline ? (
+                        <div className="text-sm">
+                          <div className={`${
+                            new Date(subtask.deadline) < new Date() && subtask.status !== 'completed'
+                              ? 'text-red-600 font-medium'
+                              : 'text-gray-900'
+                          }`}>
+                            {new Date(subtask.deadline).toLocaleDateString()}
+                          </div>
+                          {new Date(subtask.deadline) < new Date() && subtask.status !== 'completed' && (
+                            <div className="text-xs text-red-500">Overdue</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">No deadline</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Create Task Modal */}
       {showCreateModal && (
