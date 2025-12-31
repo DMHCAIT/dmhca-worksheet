@@ -4,7 +4,7 @@ const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all conversations for current user (shows all team members)
+// Get all conversations for current user (shows all users - no restrictions)
 router.get('/conversations', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -13,19 +13,13 @@ router.get('/conversations', authMiddleware, async (req, res) => {
     
     console.log('💬 GET /conversations - User:', req.user.email, 'Role:', userRole, 'Team:', userTeam);
     
-    // Get all team members (excluding self)
-    let usersQuery = supabase
+    // Get all users (excluding self) - NO TEAM RESTRICTIONS FOR CHAT
+    const usersQuery = supabase
       .from('profiles')
-      .select('id, full_name, email, avatar_url, role, team')
+      .select('id, full_name, email, avatar_url, role, team, department')
       .neq('id', userId);
     
-    // Filter by team for non-admin users (only if they have a team)
-    if ((userRole === 'employee' || userRole === 'team_lead') && userTeam) {
-      usersQuery = usersQuery.eq('team', userTeam);
-      console.log('🔍 Filtering conversations by team:', userTeam);
-    } else if ((userRole === 'employee' || userRole === 'team_lead') && !userTeam) {
-      console.log('⚠️ User has no team, showing all users');
-    }
+    console.log('💬 Showing all users for chat - no restrictions');
     
     const { data: users, error: usersError } = await usersQuery;
 
@@ -37,7 +31,7 @@ router.get('/conversations', authMiddleware, async (req, res) => {
       });
     }
 
-    console.log('✅ Found', users?.length || 0, 'team members for conversations');
+    console.log('✅ Found', users?.length || 0, 'users for conversations');
 
     // Get unread message counts and online status for each user
     const conversationsWithUnread = await Promise.all((users || []).map(async (user) => {
