@@ -105,32 +105,32 @@ export const usersApi = {
 
   create: async (data: any) => {
     const response = await api.post('/users', data)
-    return response.data
+    return response.data.data || response.data
   },
 
   update: async (id: string, data: any) => {
     const response = await api.put(`/users/${id}`, data)
-    return response.data
+    return response.data.data || response.data
   },
 
   updateUser: async (id: string, data: any) => {
     const response = await api.put(`/users/${id}`, data)
-    return response.data
+    return response.data.data || response.data
   },
 
   changePassword: async (data: { currentPassword: string, newPassword: string }) => {
     const response = await api.put('/users/change-password', data)
-    return response.data
+    return response.data.data || response.data
   },
 
   delete: async (id: string) => {
     const response = await api.delete(`/users/${id}`)
-    return response.data
+    return response.data.data || response.data
   },
 
   deleteUser: async (id: string) => {
     const response = await api.delete(`/users/${id}`)
-    return response.data
+    return response.data.data || response.data
   }
 }
 
@@ -153,27 +153,27 @@ export const projectsApi = {
 
   create: async (data: any) => {
     const response = await api.post('/projects', data)
-    return response.data
+    return response.data.data || response.data
   },
 
   createProject: async (data: any) => {
     const response = await api.post('/projects', data)
-    return response.data
+    return response.data.data || response.data
   },
 
   update: async (id: string, data: any) => {
     const response = await api.put(`/projects/${id}`, data)
-    return response.data
+    return response.data.data || response.data
   },
 
   updateProject: async (id: string, data: any) => {
     const response = await api.put(`/projects/${id}`, data)
-    return response.data
+    return response.data.data || response.data
   },
 
   delete: async (id: string) => {
     const response = await api.delete(`/projects/${id}`)
-    return response.data
+    return response.data.data || response.data
   },
 
   deleteProject: async (id: string) => {
@@ -202,32 +202,32 @@ export const tasksApi = {
 
   create: async (data: any) => {
     const response = await api.post('/tasks', data)
-    return response.data
+    return response.data.data || response.data
   },
 
   createTask: async (data: any) => {
     const response = await api.post('/tasks', data)
-    return response.data
+    return response.data.data || response.data
   },
 
   update: async (id: string, data: any) => {
     const response = await api.put(`/tasks/${id}`, data)
-    return response.data
+    return response.data.data || response.data
   },
 
   updateTask: async (id: string, data: any) => {
     const response = await api.put(`/tasks/${id}`, data)
-    return response.data
+    return response.data.data || response.data
   },
 
   delete: async (id: string) => {
     const response = await api.delete(`/tasks/${id}`)
-    return response.data
+    return response.data.data || response.data
   },
 
   deleteTask: async (id: string) => {
     const response = await api.delete(`/tasks/${id}`)
-    return response.data
+    return response.data.data || response.data
   }
 }
 
@@ -235,42 +235,42 @@ export const tasksApi = {
 export const reportsApi = {
   getDashboard: async () => {
     const response = await api.get('/reports/dashboard')
-    return response.data
+    return response.data.data || response.data
   },
 
   getDashboardStats: async () => {
     const response = await api.get('/reports/dashboard')
-    return response.data
+    return response.data.data || response.data
   },
 
   getReports: async () => {
     const response = await api.get('/reports')
-    return response.data
+    return response.data.data || response.data
   },
 
   getTeamProductivity: async () => {
     const response = await api.get('/reports/team-productivity')
-    return response.data
+    return response.data.data || response.data
   },
 
   getProjectProgress: async () => {
     const response = await api.get('/reports/project-progress')
-    return response.data
+    return response.data.data || response.data
   },
 
   getProjectStats: async () => {
     const response = await api.get('/reports/project-stats')
-    return response.data
+    return response.data.data || response.data
   },
 
   getTeamPerformance: async () => {
     const response = await api.get('/reports/team-performance')
-    return response.data
+    return response.data.data || response.data
   },
 
   getWorkloadAnalysis: async () => {
     const response = await api.get('/reports/workload-analysis')
-    return response.data
+    return response.data.data || response.data
   }
 }
 
@@ -278,27 +278,27 @@ export const reportsApi = {
 export const projectionsApi = {
   getProjections: async () => {
     const response = await api.get('/projections')
-    return response.data
+    return response.data.data || response.data
   },
 
   getAll: async () => {
     const response = await api.get('/projections')
-    return response.data
+    return response.data.data || response.data
   },
 
   createProjection: async (data: any) => {
     const response = await api.post('/projections', data)
-    return response.data
+    return response.data.data || response.data
   },
 
   updateProjection: async (id: string, data: any) => {
     const response = await api.put(`/projections/${id}`, data)
-    return response.data
+    return response.data.data || response.data
   },
 
   deleteProjection: async (id: string) => {
     const response = await api.delete(`/projections/${id}`)
-    return response.data
+    return response.data.data || response.data
   }
 }
 
@@ -306,17 +306,17 @@ export const projectionsApi = {
 export const notificationsApi = {
   getNotifications: async () => {
     const response = await api.get('/notifications')
-    return response.data
+    return response.data.data || response.data
   },
 
   markAsRead: async (id: string) => {
     const response = await api.put(`/notifications/${id}/read`)
-    return response.data
+    return response.data.data || response.data
   },
 
   markAllAsRead: async () => {
     const response = await api.put('/notifications/read-all')
-    return response.data
+    return response.data.data || response.data
   }
 }
 
