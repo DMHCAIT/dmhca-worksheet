@@ -63,7 +63,7 @@ function DashboardPage() {
       // Fetch all tasks and get recent ones
       const allTasks = await tasksApi.getAll()
       const sortedTasks = allTasks
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5)
       setRecentTasks(sortedTasks as any)
 
@@ -74,12 +74,12 @@ function DashboardPage() {
       // Calculate dashboard stats from tasks
       const statsData = {
         totalTasks: allTasks.length,
-        completedTasks: allTasks.filter(t => t.status === 'completed').length,
-        pendingTasks: allTasks.filter(t => t.status === 'pending').length,
-        inProgressTasks: allTasks.filter(t => t.status === 'in_progress').length,
-        highPriorityTasks: allTasks.filter(t => t.priority === 'high').length,
+        completedTasks: allTasks.filter((t: any) => t.status === 'completed').length,
+        pendingTasks: allTasks.filter((t: any) => t.status === 'pending').length,
+        inProgressTasks: allTasks.filter((t: any) => t.status === 'in_progress').length,
+        highPriorityTasks: allTasks.filter((t: any) => t.priority === 'high').length,
         completionRate: allTasks.length > 0 
-          ? Math.round((allTasks.filter(t => t.status === 'completed').length / allTasks.length) * 100)
+          ? Math.round((allTasks.filter((t: any) => t.status === 'completed').length / allTasks.length) * 100)
           : 0
       }
       setStats(statsData)

@@ -28,7 +28,7 @@ export default function LoginPage() {
           email: credentials.email,
           password: credentials.password,
           full_name: credentials.full_name,
-          department: credentials.department,
+          team: credentials.department || credentials.team,
           role: credentials.role
         })
         
@@ -39,10 +39,10 @@ export default function LoginPage() {
         router.push('/dashboard')
       } else {
         // Login existing user
-        const { user, token } = await authApi.login({
-          email: credentials.email,
-          password: credentials.password
-        })
+        const { user, token } = await authApi.login(
+          credentials.email,
+          credentials.password
+        )
         
         localStorage.setItem('authToken', token)
         localStorage.setItem('user', JSON.stringify(user))

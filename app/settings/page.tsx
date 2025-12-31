@@ -46,7 +46,7 @@ export default function SettingsPage() {
     if (!user?.id) return
     
     try {
-      const data = await usersApi.getById(user.id)
+      const data = await usersApi.getUser(user.id)
       setProfile(data)
     } catch (error) {
       console.error('Error fetching profile:', error)

@@ -367,7 +367,7 @@ export default function ProjectionsPage() {
                         onChange={(e) => setNewProjection({ ...newProjection, project_id: e.target.value })}
                       >
                         <option value="">None - General Projection</option>
-                        {projects.map((project) => (
+                        {projects.map((project: any) => (
                           <option key={project.id} value={project.id}>{project.name}</option>
                         ))}
                       </select>

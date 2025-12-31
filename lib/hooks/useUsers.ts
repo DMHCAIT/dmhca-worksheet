@@ -25,7 +25,7 @@ export function useUsers(options?: Omit<UseQueryOptions<User[], Error>, 'queryKe
 export function useUser(id: string, options?: Omit<UseQueryOptions<User, Error>, 'queryKey' | 'queryFn'>) {
   return useQuery<User, Error>({
     queryKey: userKeys.detail(id),
-    queryFn: () => usersApi.getById(id),
+    queryFn: () => usersApi.getUser(id),
     staleTime: 5 * 60 * 1000,
     retry: 3,
     enabled: !!id,

@@ -25,7 +25,7 @@ export function useProjects(options?: Omit<UseQueryOptions<Project[], Error>, 'q
 export function useProject(id: number, options?: Omit<UseQueryOptions<Project, Error>, 'queryKey' | 'queryFn'>) {
   return useQuery<Project, Error>({
     queryKey: projectKeys.detail(id),
-    queryFn: () => projectsApi.getById(id),
+    queryFn: () => projectsApi.getProject(id.toString()),
     staleTime: 5 * 60 * 1000,
     retry: 3,
     enabled: !!id, // Only run if ID exists
@@ -55,7 +55,7 @@ export function useUpdateProject() {
 
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateProjectRequest }) => 
-      projectsApi.update(id, data),
+      projectsApi.update(id.toString(), data),
     onMutate: async ({ id, data }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: projectKeys.detail(id) })
@@ -92,7 +92,7 @@ export function useDeleteProject() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: number) => projectsApi.delete(id),
+    mutationFn: (id: number) => projectsApi.delete(id.toString()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectKeys.all })
       toast.success('Project deleted successfully!')

@@ -19,14 +19,31 @@ interface DailyActivity {
 }
 
 export default function ReportsPage() {
-  const [selectedEmployee, setSelectedEmployee] = useState<string>('all')
+  const { user } = useAuth()
+  
+  // For employees and team leaders, default to their own name; for admin, default to 'all'
+  const getInitialEmployee = () => {
+    if (!user) return 'all'
+    if (user.role === 'employee' || user.role === 'team_lead') {
+      return user.full_name
+    }
+    return 'all'
+  }
+  
+  const [selectedEmployee, setSelectedEmployee] = useState<string>(getInitialEmployee())
   const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const [filterDateFrom, setFilterDateFrom] = useState<string>('')
   const [filterDateTo, setFilterDateTo] = useState<string>('')
   
-  const { user } = useAuth()
   const { data: allTasks = [], isLoading } = useTasks()
   const { data: users = [] } = useUsers()
+
+  // Update selected employee when user loads
+  useEffect(() => {
+    if (user && (user.role === 'employee' || user.role === 'team_lead')) {
+      setSelectedEmployee(user.full_name)
+    }
+  }, [user])
 
   // Filter tasks based on user role
   const tasks = useMemo(() => {
@@ -288,7 +305,7 @@ export default function ReportsPage() {
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {(user?.role === 'admin' || user?.role === 'team_lead') && (
+          {user?.role === 'admin' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Employee
@@ -305,6 +322,18 @@ export default function ReportsPage() {
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+          
+          {/* Show current user info for employees and team leaders */}
+          {(user?.role === 'employee' || user?.role === 'team_lead') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Viewing Reports For
+              </label>
+              <div className="input bg-gray-100 cursor-not-allowed">
+                {user.full_name} (You)
+              </div>
             </div>
           )}
           

@@ -173,7 +173,7 @@ function TasksContent() {
 
   const handleViewTask = async (task: Task) => {
     try {
-      const fullTask = await tasksApi.getById(task.id)
+      const fullTask = await tasksApi.getTask(task.id.toString())
       setTaskDetails({
         comments: (fullTask as any).comments || [],
         attachments: (fullTask as any).attachments || []
@@ -217,13 +217,10 @@ function TasksContent() {
     if (!viewingTask || !newComment.trim()) return
     
     try {
-      const comment = await tasksApi.addComment(viewingTask.id, newComment)
-      setTaskDetails(prev => ({
-        ...prev,
-        comments: [...prev.comments, comment]
-      }))
+      // TODO: Implement addComment API endpoint
+      // const comment = await tasksApi.addComment(viewingTask.id, newComment)
+      toast('Comment feature coming soon')
       setNewComment('')
-      toast.success('Comment added successfully')
     } catch (error) {
       toast.error('Failed to add comment')
     }
@@ -245,21 +242,8 @@ function TasksContent() {
     setUploadingFile(true)
     
     try {
-      // Upload file to Supabase Storage
-      const { url: fileUrl } = await uploadTaskFile(file, viewingTask.id)
-      
-      const attachment = await tasksApi.addAttachment(viewingTask.id, {
-        file_name: file.name,
-        file_url: fileUrl,
-        file_size: file.size
-      })
-      
-      setTaskDetails(prev => ({
-        ...prev,
-        attachments: [attachment, ...prev.attachments]
-      }))
-      
-      toast.success('File uploaded successfully')
+      // TODO: Implement file upload API
+      toast('File upload feature coming soon')
       e.target.value = '' // Reset file input
     } catch (error: any) {
       console.error('Upload error:', error)
@@ -278,31 +262,34 @@ function TasksContent() {
   const handleDeleteAttachment = async (attachmentId: number) => {
     if (!viewingTask || !confirm('Delete this attachment?')) return
     
-    try {
-      // Find the attachment to get the file URL
-      const attachment = taskDetails.attachments.find(a => a.id === attachmentId)
-      
-      // Delete from database first
-      await tasksApi.deleteAttachment(viewingTask.id, attachmentId)
-      
-      // Try to delete from storage (non-critical if it fails)
-      if (attachment?.file_url) {
-        try {
-          await deleteTaskFile(attachment.file_url)
-        } catch (storageError) {
-          console.error('Failed to delete file from storage:', storageError)
-          // Continue anyway - database record is already deleted
-        }
-      }
-      
-      setTaskDetails(prev => ({
-        ...prev,
-        attachments: prev.attachments.filter(a => a.id !== attachmentId)
-      }))
-      toast.success('Attachment deleted')
-    } catch (error) {
-      toast.error('Failed to delete attachment')
-    }
+    // TODO: Implement deleteAttachment API endpoint
+    toast('Delete attachment feature coming soon')
+    
+    // try {
+    //   // Find the attachment to get the file URL
+    //   const attachment = taskDetails.attachments.find(a => a.id === attachmentId)
+    //   
+    //   // Delete from database first
+    //   await tasksApi.deleteAttachment(viewingTask.id, attachmentId)
+    //   
+    //   // Try to delete from storage (non-critical if it fails)
+    //   if (attachment?.file_url) {
+    //     try {
+    //       await deleteTaskFile(attachment.file_url)
+    //     } catch (storageError) {
+    //       console.error('Failed to delete file from storage:', storageError)
+    //       // Continue anyway - database record is already deleted
+    //     }
+    //   }
+    //   
+    //   setTaskDetails(prev => ({
+    //     ...prev,
+    //     attachments: prev.attachments.filter(a => a.id !== attachmentId)
+    //   }))
+    //   toast.success('Attachment deleted')
+    // } catch (error) {
+    //   toast.error('Failed to delete attachment')
+    // }
   }
 
   const handleViewAttachment = (attachment: TaskAttachment) => {
