@@ -84,31 +84,8 @@ function DashboardPage() {
       }
       setStats(statsData)
 
-      // Generate mock activities (since we don't have an activities API)
-      const mockActivities = [
-        {
-          id: '1',
-          type: 'task_completed',
-          description: 'Task "UI Design" was completed',
-          timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-          user: { full_name: 'John Doe' }
-        },
-        {
-          id: '2',
-          type: 'project_created',
-          description: 'New project "Mobile App" was created',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-          user: { full_name: 'Jane Smith' }
-        },
-        {
-          id: '3',
-          type: 'task_assigned',
-          description: 'Task "API Development" was assigned to team',
-          timestamp: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-          user: { full_name: 'Bob Wilson' }
-        }
-      ]
-      setActivities(mockActivities)
+      // No activities API available yet
+      setActivities([])
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
@@ -156,15 +133,7 @@ function DashboardPage() {
     { name: 'Pending', value: stats.pendingTasks, color: '#FF8042' }
   ] : []
 
-  const weeklyProgressData = [
-    { name: 'Mon', tasks: 12, completed: 8 },
-    { name: 'Tue', tasks: 15, completed: 12 },
-    { name: 'Wed', tasks: 18, completed: 14 },
-    { name: 'Thu', tasks: 22, completed: 18 },
-    { name: 'Fri', tasks: 16, completed: 15 },
-    { name: 'Sat', tasks: 8, completed: 7 },
-    { name: 'Sun', tasks: 5, completed: 5 }
-  ]
+  const weeklyProgressData: { name: string; tasks: number; completed: number }[] = []
 
   if (isLoading) {
     return (
@@ -283,21 +252,23 @@ function DashboardPage() {
           </ResponsiveContainer>
         </div>
 
-        {/* Weekly Progress Chart */}
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Weekly Progress</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={weeklyProgressData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="tasks" fill="#8884d8" name="Total Tasks" />
-              <Bar dataKey="completed" fill="#82ca9d" name="Completed" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {/* Weekly Progress Chart - Hidden until real data available */}
+        {weeklyProgressData.length > 0 && (
+          <div className="card">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Weekly Progress</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={weeklyProgressData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="tasks" fill="#8884d8" name="Total Tasks" />
+                <Bar dataKey="completed" fill="#82ca9d" name="Completed" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* Content Grid */}
@@ -366,17 +337,21 @@ function DashboardPage() {
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
           <div className="space-y-4">
-            {activities.map((activity) => (
-              <div key={activity.id} className="flex items-start space-x-3">
-                <div className="flex-shrink-0 w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-900">{activity.description}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    by {activity.user.full_name} • {formatTime(activity.timestamp)}
-                  </p>
+            {activities.length > 0 ? (
+              activities.map((activity) => (
+                <div key={activity.id} className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-900">{activity.description}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      by {activity.user.full_name} • {formatTime(activity.timestamp)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-gray-500 text-center py-4">No recent activity</p>
+            )}
           </div>
         </div>
       </div>
