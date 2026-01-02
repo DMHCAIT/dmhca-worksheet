@@ -6,6 +6,7 @@ import { ProtectedRoute, useAuth } from '@/lib/auth/AuthProvider'
 import { useUsers } from '@/lib/hooks'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Send, Search, Circle } from 'lucide-react'
+import { useAdaptiveQueryOptions } from '@/lib/hooks/usePerformanceOptimization'
 import toast from 'react-hot-toast'
 
 interface Message {
@@ -47,10 +48,13 @@ function ChatContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
 
+  // Adaptive polling options for real-time chat (critical priority)
+  const chatPollingOptions = useAdaptiveQueryOptions('critical', true)
+
   // Fetch all users for new conversations
   const { data: allUsers = [] } = useUsers()
 
-  // Fetch conversations (users with existing chats)
+  // Fetch conversations (users with existing chats) - optimized polling
   const { data: conversations = [] } = useQuery<Conversation[]>({
     queryKey: ['conversations'],
     queryFn: async () => {
@@ -64,10 +68,14 @@ function ChatContent() {
       const data = await response.json()
       return data.data || []
     },
-    refetchInterval: 5000, // Poll every 5 seconds for new messages
+    refetchInterval: chatPollingOptions.refetchInterval,
+    refetchIntervalInBackground: chatPollingOptions.refetchIntervalInBackground,
+    refetchOnWindowFocus: chatPollingOptions.refetchOnWindowFocus,
+    refetchOnMount: chatPollingOptions.refetchOnMount,
+    staleTime: chatPollingOptions.staleTime,
   })
 
-  // Fetch messages for selected conversation
+  // Fetch messages for selected conversation - optimized polling
   const { data: messages = [] } = useQuery<Message[]>({
     queryKey: ['messages', selectedUser?.id],
     queryFn: async () => {
@@ -83,7 +91,11 @@ function ChatContent() {
       return data.data || []
     },
     enabled: !!selectedUser,
-    refetchInterval: 2000, // Poll every 2 seconds for new messages
+    refetchInterval: chatPollingOptions.refetchInterval,
+    refetchIntervalInBackground: chatPollingOptions.refetchIntervalInBackground,
+    refetchOnWindowFocus: chatPollingOptions.refetchOnWindowFocus,
+    refetchOnMount: chatPollingOptions.refetchOnMount,
+    staleTime: chatPollingOptions.staleTime,
   })
 
   // Send message mutation

@@ -1,9 +1,10 @@
 'use client'
 
-import { useMemo } from 'react'
+import React, { useMemo, memo, useCallback } from 'react'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { TrendingUp, TrendingDown, Clock, Target, Award, AlertCircle } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, eachWeekOfInterval } from 'date-fns'
+import { usePerformanceMonitor } from '@/lib/hooks/usePerformanceOptimization'
 
 interface AnalyticsDashboardProps {
   projections: any[]
@@ -11,11 +12,135 @@ interface AnalyticsDashboardProps {
   viewMode: 'week' | 'month'
 }
 
-export default function AnalyticsDashboard({ 
+// Memoized stats card component
+const StatsCard = memo(({ 
+  icon: Icon, 
+  title, 
+  value, 
+  subtitle, 
+  trend,
+  trendColor 
+}: {
+  icon: any
+  title: string
+  value: string | number
+  subtitle: string
+  trend?: number
+  trendColor?: string
+}) => (
+  <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center">
+        <div className="flex-shrink-0">
+          <Icon className="h-8 w-8 text-blue-600" />
+        </div>
+        <div className="ml-5 w-0 flex-1">
+          <dl>
+            <dt className="text-sm font-medium text-gray-500 truncate">{title}</dt>
+            <dd className="flex items-baseline">
+              <div className="text-2xl font-semibold text-gray-900">{value}</div>
+              {trend !== undefined && (
+                <div className={`ml-2 flex items-baseline text-sm ${trendColor}`}>
+                  {trend > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                  <span className="ml-1">{Math.abs(trend)}%</span>
+                </div>
+              )}
+            </dd>
+            <dd className="text-sm text-gray-500">{subtitle}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+))
+
+StatsCard.displayName = 'StatsCard'
+
+// Memoized chart component
+const MemoizedChart = memo(({ 
+  type, 
+  data, 
+  title, 
+  height = 300 
+}: { 
+  type: 'bar' | 'line' | 'pie'
+  data: any[]
+  title: string
+  height?: number
+}) => {
+  const renderChart = useCallback(() => {
+    switch (type) {
+      case 'bar':
+        return (
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="estimated" fill="#3B82F6" name="Estimated Hours" />
+            <Bar dataKey="actual" fill="#10B981" name="Actual Hours" />
+          </BarChart>
+        )
+      case 'line':
+        return (
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="week" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Line type="monotone" dataKey="projected" stroke="#3B82F6" strokeWidth={2} name="Projected Hours" />
+            <Line type="monotone" dataKey="actual" stroke="#10B981" strokeWidth={2} name="Actual Hours" />
+          </LineChart>
+        )
+      case 'pie':
+        const COLORS = ['#10B981', '#F59E0B', '#EF4444', '#8B5CF6']
+        return (
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              outerRadius={80}
+              fill="#8884d8"
+              dataKey="value"
+              label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+            >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+          </PieChart>
+        )
+      default:
+        return null
+    }
+  }, [type, data])
+
+  return (
+    <div className="bg-white p-6 rounded-lg border border-gray-200">
+      <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
+      <div className="h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          {renderChart()}
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+})
+
+MemoizedChart.displayName = 'MemoizedChart'
+
+const AnalyticsDashboard = memo(({ 
   projections, 
   selectedDate,
   viewMode 
-}: AnalyticsDashboardProps) {
+}: AnalyticsDashboardProps) => {
+  // Performance monitoring for debugging
+  usePerformanceMonitor('AnalyticsDashboard')
   
   const stats = useMemo(() => {
     const totalEstimated = projections.reduce((sum, p) => sum + p.estimated_hours, 0)
@@ -84,6 +209,44 @@ export default function AnalyticsDashboard({
     { name: 'Planned', value: stats.planned, color: '#eab308' },
   ].filter(d => d.value > 0), [stats])
 
+  // Charts data with optimized memoization
+  const chartsData = useMemo(() => ({
+    weeklyTrend: viewMode === 'month' ? weeklyTrend : [],
+    statusData,
+    projectDistribution,
+    maxProjectHours: projectDistribution.length > 0 ? projectDistribution[0].hours : 0
+  }), [viewMode, weeklyTrend, statusData, projectDistribution])
+
+  // Memoized stats cards data
+  const statsCardsData = useMemo(() => [
+    {
+      icon: Target,
+      title: 'Accuracy',
+      value: `${stats.accuracy.toFixed(0)}%`,
+      subtitle: 'Estimation accuracy',
+      trend: stats.accuracy > 90 ? 5 : -5,
+      trendColor: stats.accuracy > 90 ? 'text-green-600' : 'text-red-600'
+    },
+    {
+      icon: Award,
+      title: 'Completion',
+      value: `${stats.total > 0 ? ((stats.completed / stats.total) * 100).toFixed(0) : 0}%`,
+      subtitle: `${stats.completed} of ${stats.total} completed`
+    },
+    {
+      icon: Clock,
+      title: 'Variance',
+      value: `${stats.variance > 0 ? '+' : ''}${stats.variance}h`,
+      subtitle: 'Actual vs Estimated'
+    },
+    {
+      icon: Target,
+      title: 'Capacity',
+      value: `${stats.totalEstimated}h`,
+      subtitle: 'Total estimated hours'
+    }
+  ], [stats])
+
   if (projections.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -98,117 +261,45 @@ export default function AnalyticsDashboard({
     <div className="space-y-6">
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-gray-600">Accuracy</h4>
-            {stats.accuracy > 90 ? (
-              <TrendingUp className="w-5 h-5 text-green-600" />
-            ) : (
-              <TrendingDown className="w-5 h-5 text-red-600" />
-            )}
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{stats.accuracy.toFixed(0)}%</p>
-          <p className="text-xs text-gray-500 mt-1">Estimation accuracy</p>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-gray-600">Completion</h4>
-            <Award className="w-5 h-5 text-blue-600" />
-          </div>
-          <p className="text-3xl font-bold text-gray-900">
-            {stats.total > 0 ? ((stats.completed / stats.total) * 100).toFixed(0) : 0}%
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            {stats.completed} of {stats.total} completed
-          </p>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-gray-600">Variance</h4>
-            <Clock className="w-5 h-5 text-purple-600" />
-          </div>
-          <p className={`text-3xl font-bold ${stats.variance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {stats.variance > 0 ? '+' : ''}{stats.variance}h
-          </p>
-          <p className="text-xs text-gray-500 mt-1">Actual vs Estimated</p>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-gray-600">Capacity</h4>
-            <Target className="w-5 h-5 text-orange-600" />
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{stats.totalEstimated}h</p>
-          <p className="text-xs text-gray-500 mt-1">Total estimated hours</p>
-        </div>
+        {statsCardsData.map((card, index) => (
+          <StatsCard key={index} {...card} />
+        ))}
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Weekly Trend (Only for month view) */}
-        {viewMode === 'month' && weeklyTrend.length > 0 && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Weekly Trend</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={weeklyTrend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="week" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="estimated" stroke="#3b82f6" strokeWidth={2} name="Estimated Hours" />
-                <Line type="monotone" dataKey="actual" stroke="#10b981" strokeWidth={2} name="Actual Hours" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+        {chartsData.weeklyTrend.length > 0 && (
+          <MemoizedChart
+            type="line"
+            data={chartsData.weeklyTrend}
+            title="Weekly Trend"
+            height={250}
+          />
         )}
 
         {/* Status Distribution */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Distribution</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie
-                data={statusData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        <MemoizedChart
+          type="pie"
+          data={chartsData.statusData}
+          title="Status Distribution"
+          height={250}
+        />
 
         {/* Top Projects */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Projects by Hours</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={projectDistribution}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="hours" fill="#3b82f6" name="Hours" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <MemoizedChart
+          type="bar"
+          data={chartsData.projectDistribution}
+          title="Top Projects by Hours"
+          height={250}
+        />
 
         {/* Project Count */}
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Projections by Project</h3>
           <div className="space-y-3">
-            {projectDistribution.map((project, index) => (
-              <div key={index} className="flex items-center justify-between">
+            {chartsData.projectDistribution.map((project, index) => (
+              <div key={project.name} className="flex items-center justify-between">
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-medium text-gray-900">{project.name}</span>
@@ -217,7 +308,7 @@ export default function AnalyticsDashboard({
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-blue-600 h-2 rounded-full"
-                      style={{ width: `${(project.hours / projectDistribution[0].hours) * 100}%` }}
+                      style={{ width: `${chartsData.maxProjectHours > 0 ? (project.hours / chartsData.maxProjectHours) * 100 : 0}%` }}
                     />
                   </div>
                 </div>
@@ -228,4 +319,8 @@ export default function AnalyticsDashboard({
       </div>
     </div>
   )
-}
+})
+
+AnalyticsDashboard.displayName = 'AnalyticsDashboard'
+
+export default AnalyticsDashboard

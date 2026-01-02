@@ -1,17 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState, useMemo, useCallback, memo } from 'react'
 import { WorkProjection } from '@/types/entities'
 import { ChevronDown, ChevronUp, Plus, Edit2, Trash2, Calendar, Users } from 'lucide-react'
 import { format } from 'date-fns'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useUsers } from '@/lib/hooks'
+import { usePerformanceMonitor, useAdaptiveQueryOptions } from '@/lib/hooks/usePerformanceOptimization'
 
 interface ProjectionCardProps {
   projection: WorkProjection
   onEdit: (projection: WorkProjection) => void
   onDelete: (projection: WorkProjection) => void
-  onUpdateActualHours: (id: number, hours: number) => void
+  onUpdateActualHours?: (id: number, hours: number) => void
 }
 
 interface Subtask {
@@ -27,11 +28,122 @@ interface Subtask {
   deadline: string
 }
 
-export default function ProjectionCard({
+// Memoized subtask item component to prevent unnecessary re-renders
+const SubtaskItem = memo(({ 
+  subtask, 
+  onUpdate, 
+  onDelete, 
+  users 
+}: { 
+  subtask: Subtask
+  onUpdate: (id: number, data: any) => void
+  onDelete: (id: number) => void
+  users: any[]
+}) => {
+  const [editingHours, setEditingHours] = useState(false)
+  const [actualHours, setActualHours] = useState(subtask.actual_hours.toString())
+
+  const assignedUser = useMemo(() => 
+    users.find(u => u.id === subtask.assigned_to), 
+    [users, subtask.assigned_to]
+  )
+
+  const handleHoursUpdate = useCallback(() => {
+    const hours = parseFloat(actualHours)
+    if (!isNaN(hours) && hours !== subtask.actual_hours) {
+      onUpdate(subtask.id, { actual_hours: hours })
+    }
+    setEditingHours(false)
+  }, [actualHours, subtask.actual_hours, subtask.id, onUpdate])
+
+  const statusColor = useMemo(() => {
+    switch (subtask.status) {
+      case 'completed': return 'bg-green-100 text-green-800'
+      case 'in_progress': return 'bg-blue-100 text-blue-800'
+      case 'planned': return 'bg-gray-100 text-gray-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }, [subtask.status])
+
+  const priorityColor = useMemo(() => {
+    switch (subtask.priority) {
+      case 'high': return 'bg-red-100 text-red-800'
+      case 'medium': return 'bg-yellow-100 text-yellow-800'
+      case 'low': return 'bg-green-100 text-green-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }, [subtask.priority])
+
+  return (
+    <div className="bg-gray-50 p-4 rounded-lg">
+      <div className="flex justify-between items-start mb-2">
+        <h4 className="font-medium text-gray-900">{subtask.title}</h4>
+        <button
+          onClick={() => onDelete(subtask.id)}
+          className="text-red-600 hover:text-red-800"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+      
+      <p className="text-sm text-gray-600 mb-3">{subtask.description}</p>
+      
+      <div className="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <span className="text-gray-500">Assigned:</span> {assignedUser?.full_name || 'Unassigned'}
+        </div>
+        <div>
+          <span className="text-gray-500">Deadline:</span> {format(new Date(subtask.deadline), 'MMM dd')}
+        </div>
+        <div>
+          <span className="text-gray-500">Estimated:</span> {subtask.estimated_hours}h
+        </div>
+        <div>
+          <span className="text-gray-500">Actual:</span>
+          {editingHours ? (
+            <input
+              type="number"
+              step="0.5"
+              value={actualHours}
+              onChange={(e) => setActualHours(e.target.value)}
+              onBlur={handleHoursUpdate}
+              onKeyDown={(e) => e.key === 'Enter' && handleHoursUpdate()}
+              className="w-16 px-1 py-0.5 text-xs border rounded ml-1"
+              autoFocus
+            />
+          ) : (
+            <span
+              onClick={() => setEditingHours(true)}
+              className="cursor-pointer hover:bg-gray-200 px-1 py-0.5 rounded ml-1"
+            >
+              {subtask.actual_hours}h
+            </span>
+          )}
+        </div>
+      </div>
+      
+      <div className="flex gap-2 mt-3">
+        <span className={`px-2 py-1 text-xs rounded-full ${statusColor}`}>
+          {subtask.status}
+        </span>
+        <span className={`px-2 py-1 text-xs rounded-full ${priorityColor}`}>
+          {subtask.priority}
+        </span>
+      </div>
+    </div>
+  )
+})
+
+SubtaskItem.displayName = 'SubtaskItem'
+
+const ProjectionCard = memo(({
   projection,
   onEdit,
   onDelete,
-}: ProjectionCardProps) {
+}: ProjectionCardProps) => {
+  // Performance monitoring for debugging
+  usePerformanceMonitor('ProjectionCard')
+
   const [showSubtasks, setShowSubtasks] = useState(false)
   const [showAddSubtask, setShowAddSubtask] = useState(false)
   const [newSubtask, setNewSubtask] = useState({
@@ -46,8 +158,11 @@ export default function ProjectionCard({
   const queryClient = useQueryClient()
   const { data: users = [] } = useUsers()
 
-  // Fetch subtasks
-  const { data: subtasks = [], isLoading: subtasksLoading } = useQuery({
+  // Optimized query options for subtasks
+  const subtaskQueryOptions = useAdaptiveQueryOptions('normal', showSubtasks)
+
+  // Fetch subtasks with adaptive polling
+  const { data: subtasks = [], isLoading: subtasksLoading } = useQuery<Subtask[]>({
     queryKey: ['projection-subtasks', projection.id],
     queryFn: async () => {
       const token = localStorage.getItem('authToken')
@@ -61,7 +176,61 @@ export default function ProjectionCard({
       return data.data || []
     },
     enabled: showSubtasks,
+    refetchInterval: subtaskQueryOptions.refetchInterval,
+    refetchIntervalInBackground: subtaskQueryOptions.refetchIntervalInBackground,
+    refetchOnWindowFocus: subtaskQueryOptions.refetchOnWindowFocus,
+    refetchOnMount: subtaskQueryOptions.refetchOnMount,
+    staleTime: subtaskQueryOptions.staleTime,
   })
+
+  // Memoized calculations for performance
+  const cardMetrics = useMemo(() => {
+    const totalSubtasks = subtasks.length
+    const completedSubtasks = subtasks.filter((st: Subtask) => st.status === 'completed').length
+    const progressPercentage = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0
+    const totalEstimated = subtasks.reduce((sum: number, st: Subtask) => sum + st.estimated_hours, 0)
+    const totalActual = subtasks.reduce((sum: number, st: Subtask) => sum + st.actual_hours, 0)
+    
+    return {
+      totalSubtasks,
+      completedSubtasks,
+      progressPercentage,
+      totalEstimated,
+      totalActual,
+      variance: totalActual - totalEstimated
+    }
+  }, [subtasks])
+
+  const statusColor = useMemo(() => {
+    switch (projection.status) {
+      case 'completed': return 'bg-green-100 text-green-800'
+      case 'in_progress': return 'bg-blue-100 text-blue-800'
+      case 'planned': return 'bg-gray-100 text-gray-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }, [projection.status])
+
+  const priorityColor = useMemo(() => {
+    switch (projection.priority) {
+      case 'high': return 'bg-red-100 text-red-800'
+      case 'medium': return 'bg-yellow-100 text-yellow-800'
+      case 'low': return 'bg-green-100 text-green-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }, [projection.priority])
+
+  // Memoized callbacks to prevent child re-renders
+  const handleToggleSubtasks = useCallback(() => {
+    setShowSubtasks(prev => !prev)
+  }, [])
+
+  const handleEditProjection = useCallback(() => {
+    onEdit(projection)
+  }, [onEdit, projection])
+
+  const handleDeleteProjection = useCallback(() => {
+    onDelete(projection)
+  }, [onDelete, projection])
 
   // Create subtask mutation
   const createSubtaskMutation = useMutation({
@@ -401,14 +570,14 @@ export default function ProjectionCard({
       {/* Footer Actions */}
       <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-end gap-2">
         <button
-          onClick={() => onEdit(projection)}
+          onClick={handleEditProjection}
           className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
         >
           <Edit2 className="w-4 h-4 mr-1" />
           Edit Projection
         </button>
         <button
-          onClick={() => onDelete(projection)}
+          onClick={handleDeleteProjection}
           className="inline-flex items-center px-3 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
         >
           <Trash2 className="w-4 h-4 mr-1" />
@@ -417,4 +586,8 @@ export default function ProjectionCard({
       </div>
     </div>
   )
-}
+})
+
+ProjectionCard.displayName = 'ProjectionCard'
+
+export default ProjectionCard

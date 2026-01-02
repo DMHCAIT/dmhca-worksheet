@@ -264,29 +264,65 @@ function TasksContent() {
     
     const file = e.target.files[0]
     
-    // Check file size (max 50MB)
-    const maxSize = 50 * 1024 * 1024
-    if (file.size > maxSize) {
-      toast.error('File size must be less than 50MB')
-      e.target.value = ''
-      return
-    }
+    // Reset file input immediately for security
+    const inputElement = e.target
+    inputElement.value = ''
     
     setUploadingFile(true)
     
     try {
-      // TODO: Implement file upload API
-      toast('File upload feature coming soon')
-      e.target.value = '' // Reset file input
-    } catch (error: any) {
-      console.error('Upload error:', error)
-      const errorMessage = error?.message || 'Failed to upload file'
-      if (errorMessage.includes('row-level security')) {
-        toast.error('Storage permission error. Please contact administrator.')
-      } else {
-        toast.error(errorMessage)
+      // Import security utilities dynamically
+      const { validateFileUpload, createSecureFormData } = await import('@/lib/utils/fileUploadSecurity')
+      
+      // Comprehensive security validation
+      toast('Validating file security...', { duration: 2000 })
+      const validation = await validateFileUpload(file)
+      
+      if (!validation.isValid) {
+        toast.error(`Upload blocked: ${validation.error}`)
+        return
       }
-      e.target.value = ''
+      
+      if (!validation.metadata) {
+        toast.error('File validation failed - missing metadata')
+        return
+      }
+      
+      // Create secure FormData
+      const formData = createSecureFormData(
+        file,
+        validation.metadata,
+        {
+          taskId: viewingTask.id.toString(),
+          userId: user?.id?.toString() || '',
+          category: validation.metadata.category
+        }
+      )
+      
+      // TODO: Implement secure server-side upload API with additional validation
+      // Server should re-validate file type, scan for viruses, and store with proper permissions
+      
+      toast.success(`File "${validation.metadata.name}" validated successfully. Upload API integration pending.`)
+      
+      console.log('Secure upload ready:', {
+        originalName: file.name,
+        sanitizedName: validation.metadata.name,
+        type: validation.metadata.type,
+        size: validation.metadata.size,
+        category: validation.metadata.category
+      })
+      
+    } catch (error: any) {
+      console.error('Upload security error:', error)
+      const errorMessage = error?.message || 'File security validation failed'
+      
+      if (errorMessage.includes('security scan')) {
+        toast.error('File upload blocked by security scan')
+      } else if (errorMessage.includes('file type')) {
+        toast.error('Invalid file type - only documents, images, and archives allowed')
+      } else {
+        toast.error('Upload failed: Security validation error')
+      }
     } finally {
       setUploadingFile(false)
     }

@@ -31,6 +31,13 @@ function TeamContent() {
   const createUser = useCreateUser()
   const updateUser = useUpdateUser()
 
+  // Default office locations (fallback if API fails or returns empty)
+  const defaultOffices = [
+    { id: 1, name: 'DMHCA Delhi Branch' },
+    { id: 2, name: 'DMHCA Hyderabad Branch' },
+    { id: 3, name: 'DMHCA Head Office' }
+  ]
+
   // Fetch office locations
   useEffect(() => {
     const fetchOffices = async () => {
@@ -42,12 +49,24 @@ function TeamContent() {
             'Content-Type': 'application/json',
           },
         })
-        const data = await response.json()
-        if (data.success) {
-          setOffices(data.data || [])
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.data && data.data.length > 0) {
+            console.log('✅ Offices loaded from API:', data.data)
+            setOffices(data.data)
+          } else {
+            console.log('⚠️ API returned empty offices, using fallback')
+            setOffices(defaultOffices)
+          }
+        } else {
+          console.log('⚠️ API request failed, using fallback offices')
+          setOffices(defaultOffices)
         }
       } catch (error) {
-        console.error('Error fetching offices:', error)
+        console.error('❌ Error fetching offices:', error)
+        console.log('🔄 Using fallback office locations')
+        setOffices(defaultOffices)
       }
     }
     fetchOffices()

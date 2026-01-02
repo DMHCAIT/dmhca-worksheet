@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Calendar, Clock, MapPin, Users, Filter, RefreshCw, Download, Search, Eye } from 'lucide-react'
+import { useAdaptiveQueryOptions } from '@/lib/hooks/usePerformanceOptimization'
 import toast from 'react-hot-toast'
 
 interface AttendanceRecord {
@@ -85,7 +86,10 @@ export default function AttendanceMonitorPage() {
     }
   })
 
-  // Fetch live attendance status
+  // Adaptive polling for attendance monitoring (important priority)
+  const attendancePollingOptions = useAdaptiveQueryOptions('important', autoRefresh)
+
+  // Fetch live attendance status - optimized polling
   const { data: liveData, isLoading: liveLoading, refetch: refetchLive } = useQuery<{
     stats: MonitoringStats
     attendances: LiveAttendance[]
@@ -105,7 +109,12 @@ export default function AttendanceMonitorPage() {
       const data = await response.json()
       return data.success ? data.data : { stats: {}, attendances: [] }
     },
-    refetchInterval: autoRefresh ? 10000 : false // Refresh every 10 seconds if auto-refresh is on
+    enabled: attendancePollingOptions.enabled,
+    refetchInterval: attendancePollingOptions.refetchInterval,
+    refetchIntervalInBackground: attendancePollingOptions.refetchIntervalInBackground,
+    refetchOnWindowFocus: attendancePollingOptions.refetchOnWindowFocus,
+    refetchOnMount: attendancePollingOptions.refetchOnMount,
+    staleTime: attendancePollingOptions.staleTime,
   })
 
   // Fetch attendance records

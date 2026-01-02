@@ -45,6 +45,17 @@ export function CreateUserModal({
     branch_id: null,
   })
 
+  // Debug logging for office data
+  React.useEffect(() => {
+    console.log('🏢 CreateUserModal offices data:', offices)
+    console.log('🏢 Offices count:', offices?.length || 0)
+    if (offices && offices.length > 0) {
+      console.log('🏢 Available offices:', offices.map(o => ({ id: o.id, name: o.name })))
+    } else {
+      console.log('⚠️ No offices available for branch selection')
+    }
+  }, [offices])
+
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showPassword, setShowPassword] = useState(false)
 
@@ -314,6 +325,9 @@ export function CreateUserModal({
               <div>
                 <label htmlFor="user-branch" className="block text-sm font-medium text-gray-700 mb-1">
                   Branch/Office
+                  {offices && offices.length === 0 && (
+                    <span className="ml-2 text-xs text-amber-600">(No branches configured)</span>
+                  )}
                 </label>
                 <select
                   id="user-branch"
@@ -322,12 +336,25 @@ export function CreateUserModal({
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">No specific branch</option>
-                  {offices.map(office => (
-                    <option key={office.id} value={office.id}>
-                      {office.name}
-                    </option>
-                  ))}
+                  {offices && offices.length > 0 ? (
+                    offices.map(office => (
+                      <option key={office.id} value={office.id}>
+                        {office.name}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="1">DMHCA Delhi Branch</option>
+                      <option value="2">DMHCA Hyderabad Branch</option>
+                      <option value="3">DMHCA Head Office</option>
+                    </>
+                  )}
                 </select>
+                {offices && offices.length === 0 && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Using default branches. Contact admin to configure office locations.
+                  </p>
+                )}
               </div>
             </div>
           </div>
