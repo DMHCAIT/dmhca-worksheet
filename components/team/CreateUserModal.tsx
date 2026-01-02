@@ -19,13 +19,13 @@ const roleOptions: SelectOption<UserRole>[] = [
 
 const departments = [
   'Administration',
-  'Finance', 
+  'Medical Affairs', 
+  'Academic Affairs',
+  'Student Services',
+  'IT Department',
+  'Finance & Accounts',
   'Human Resources',
-  'Information Technology',
-  'Medical Records',
-  'Nursing',
-  'Operations',
-  'Quality Assurance'
+  'Facilities Management'
 ]
 
 export function CreateUserModal({

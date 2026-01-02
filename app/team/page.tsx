@@ -7,6 +7,7 @@ import { useUsers, useCreateUser, useUpdateUser } from '@/lib/hooks'
 import { ErrorDisplay } from '@/components/ErrorDisplay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { CreateUserModal } from '@/components/team/CreateUserModal'
+import { EditUserModal } from '@/components/team/EditUserModal'
 import { UserFiltersBar, UserFilters } from '@/components/team/UserFiltersBar'
 import { UserTable } from '@/components/team/UserTable'
 import { PasswordChangeModal } from '@/components/team/PasswordChangeModal'
@@ -18,6 +19,7 @@ function TeamContent() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [offices, setOffices] = useState<Array<{ id: number; name: string }>>([])
   const [filters, setFilters] = useState<UserFilters>({
@@ -123,9 +125,15 @@ function TeamContent() {
     await createUser.mutateAsync(formData)
   }
 
+  const handleUpdateUser = async (userId: string, userData: Partial<User>) => {
+    await updateUser.mutateAsync({ id: userId, data: userData })
+    setShowEditModal(false)
+    setSelectedUser(null)
+  }
+
   const handleEditUser = (user: User) => {
-    // TODO: Implement edit user modal
-    console.log('Edit user:', user)
+    setSelectedUser(user)
+    setShowEditModal(true)
   }
 
   const handleDeleteUser = (userId: string) => {
@@ -269,6 +277,20 @@ function TeamContent() {
         offices={offices}
         isLoading={createUser.isPending}
       />
+
+      {selectedUser && (
+        <EditUserModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false)
+            setSelectedUser(null)
+          }}
+          onSubmit={handleUpdateUser}
+          user={selectedUser}
+          offices={offices}
+          isLoading={updateUser.isPending}
+        />
+      )}
 
       {selectedUser && (
         <PasswordChangeModal
