@@ -13,6 +13,7 @@ const projectionSubtasksRoutes = require('./routes/projection-subtasks');
 const reportRoutes = require('./routes/reports');
 const notificationRoutes = require('./routes/notifications');
 const chatRoutes = require('./routes/chat');
+const attendanceRoutes = require('./routes/attendance');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -109,6 +110,7 @@ app.use('/api/projections', projectionSubtasksRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
