@@ -27,9 +27,10 @@ CREATE TABLE IF NOT EXISTS public.office_locations (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Insert default office location (DMHCA Delhi Branch)
-INSERT INTO public.office_locations (name, latitude, longitude, radius_meters) 
-VALUES ('DMHCA Delhi Branch', 28.492361, 77.163533, 100) -- Delhi office coordinates
+-- Insert office locations (Delhi and Hyderabad branches)
+INSERT INTO public.office_locations (name, latitude, longitude, radius_meters) VALUES
+  ('DMHCA Delhi Branch', 28.492361, 77.163533, 100),
+  ('DMHCA Hyderabad Branch', 17.42586, 78.44508, 100)
 ON CONFLICT DO NOTHING;
 
 -- Create indexes
@@ -83,11 +84,11 @@ CREATE POLICY "Admins can manage office locations" ON public.office_locations
     )
   );
 
--- Create function to check if user is within geofence
+-- Create function to check if user is within any active office geofence
 CREATE OR REPLACE FUNCTION public.is_within_geofence(
   user_lat DECIMAL,
   user_lon DECIMAL,
-  office_id BIGINT DEFAULT 1
+  office_id BIGINT DEFAULT NULL
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -95,33 +96,58 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  office_lat DECIMAL;
-  office_lon DECIMAL;
-  office_radius INTEGER;
+  office_record RECORD;
   distance_meters DECIMAL;
 BEGIN
-  -- Get office location and radius
-  SELECT latitude, longitude, radius_meters
-  INTO office_lat, office_lon, office_radius
-  FROM office_locations
-  WHERE id = office_id AND is_active = true;
-  
-  IF NOT FOUND THEN
+  -- If office_id is specified, check only that office
+  IF office_id IS NOT NULL THEN
+    SELECT latitude, longitude, radius_meters
+    INTO office_record
+    FROM office_locations
+    WHERE id = office_id AND is_active = true;
+    
+    IF NOT FOUND THEN
+      RETURN false;
+    END IF;
+    
+    -- Calculate distance using Haversine formula
+    distance_meters := (
+      6371000 * acos(
+        cos(radians(office_record.latitude)) * 
+        cos(radians(user_lat)) * 
+        cos(radians(user_lon) - radians(office_record.longitude)) + 
+        sin(radians(office_record.latitude)) * 
+        sin(radians(user_lat))
+      )
+    );
+    
+    RETURN distance_meters <= office_record.radius_meters;
+  ELSE
+    -- Check all active offices - return true if within ANY office geofence
+    FOR office_record IN 
+      SELECT latitude, longitude, radius_meters 
+      FROM office_locations 
+      WHERE is_active = true
+    LOOP
+      -- Calculate distance using Haversine formula
+      distance_meters := (
+        6371000 * acos(
+          cos(radians(office_record.latitude)) * 
+          cos(radians(user_lat)) * 
+          cos(radians(user_lon) - radians(office_record.longitude)) + 
+          sin(radians(office_record.latitude)) * 
+          sin(radians(user_lat))
+        )
+      );
+      
+      -- If within any office radius, return true
+      IF distance_meters <= office_record.radius_meters THEN
+        RETURN true;
+      END IF;
+    END LOOP;
+    
+    -- Not within any office geofence
     RETURN false;
   END IF;
-  
-  -- Calculate distance using Haversine formula
-  distance_meters := (
-    6371000 * acos(
-      cos(radians(office_lat)) * 
-      cos(radians(user_lat)) * 
-      cos(radians(user_lon) - radians(office_lon)) + 
-      sin(radians(office_lat)) * 
-      sin(radians(user_lat))
-    )
-  );
-  
-  -- Return true if within radius
-  RETURN distance_meters <= office_radius;
 END;
 $$;

@@ -105,12 +105,12 @@ router.post('/checkin', authMiddleware, async (req, res) => {
       });
     }
 
-    // Validate location using the database function
+    // Validate location using the database function (checks all active offices)
     const { data: isValidLocation, error: locationError } = await supabase
       .rpc('is_within_geofence', {
         user_lat: latitude,
-        user_lon: longitude,
-        office_id: 1 // Default office ID
+        user_lon: longitude
+        // Note: No office_id specified - checks all active offices
       });
 
     if (locationError) {
@@ -236,12 +236,11 @@ router.post('/checkout', authMiddleware, async (req, res) => {
       });
     }
 
-    // Validate location
+    // Validate location (checks all active offices)
     const { data: isValidLocation, error: locationError } = await supabase
       .rpc('is_within_geofence', {
         user_lat: latitude,
-        user_lon: longitude,
-        office_id: 1
+        user_lon: longitude
       });
 
     if (locationError) {
