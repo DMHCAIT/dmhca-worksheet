@@ -27,9 +27,9 @@ CREATE TABLE IF NOT EXISTS public.office_locations (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Insert default office location (replace with your actual coordinates)
+-- Insert default office location (DMHCA Delhi Branch)
 INSERT INTO public.office_locations (name, latitude, longitude, radius_meters) 
-VALUES ('DMHCA Main Office', 16.5062, 80.6480, 100) -- Example: Vijayawada area coordinates
+VALUES ('DMHCA Delhi Branch', 28.492361, 77.163533, 100) -- Delhi office coordinates
 ON CONFLICT DO NOTHING;
 
 -- Create indexes

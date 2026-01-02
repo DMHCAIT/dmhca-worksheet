@@ -78,11 +78,24 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', 'recharts', '@tanstack/react-query'],
   },
   
-  // Reduce aggressive preloading
+  // Reduce aggressive preloading and optimize performance
   onDemandEntries: {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
-  }
+  },
+  
+  // Optimize CSS and resource loading
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  
+  // Reduce preloading for better performance
+  async rewrites() {
+    return []
+  },
+  
+  // Disable automatic static optimization for pages with getServerSideProps
+  target: 'server'
 }
 
 module.exports = nextConfig

@@ -5,10 +5,18 @@
 @layer base {
   html {
     @apply scroll-smooth;
+    font-display: swap; /* Optimize font loading */
   }
   
   body {
     @apply bg-gray-50 text-gray-900;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Optimize initial render */
+  * {
+    box-sizing: border-box;
   }
 }
 

@@ -7,7 +7,8 @@ import { ReactQueryProvider } from '@/lib/providers/ReactQueryProvider'
 const inter = Inter({ 
   subsets: ['latin'],
   display: 'swap',
-  preload: true
+  preload: false, // Reduce aggressive preloading
+  fallback: ['system-ui', 'arial']
 })
 
 export const metadata = {
