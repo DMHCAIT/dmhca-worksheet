@@ -104,6 +104,7 @@ export interface CreateUserRequest {
   role: string
   department?: string
   phone?: string
+  branch_id?: number | null
 }
 
 export interface UpdateUserRequest {
@@ -112,4 +113,5 @@ export interface UpdateUserRequest {
   role?: string
   department?: string
   phone?: string
+  branch_id?: number | null
 }

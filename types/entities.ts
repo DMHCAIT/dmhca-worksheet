@@ -13,6 +13,11 @@ export interface User {
   department?: string
   team?: string
   phone?: string
+  branch_id?: number | null
+  office_locations?: {
+    id: number
+    name: string
+  }
   created_at?: string
   updated_at?: string
 }

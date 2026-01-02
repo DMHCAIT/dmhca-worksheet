@@ -16,6 +16,17 @@ CREATE TABLE IF NOT EXISTS public.attendance_records (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Add branch_id column to profiles table (if not exists)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'branch_id'
+  ) THEN
+    ALTER TABLE public.profiles ADD COLUMN branch_id BIGINT REFERENCES public.office_locations(id);
+  END IF;
+END $$;
+
 -- Create office_locations table (configurable office locations)
 CREATE TABLE IF NOT EXISTS public.office_locations (
   id BIGSERIAL PRIMARY KEY,

@@ -11,11 +11,14 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     console.log('👥 GET /api/users - User:', req.user?.email, 'Role:', req.user?.role);
     
-    // Select all user fields
+    // Select all user fields including branch info
     // NO TEAM FILTERING - All users can see all users for chat functionality
     const query = supabase
       .from('profiles')
-      .select('id, email, full_name, role, team, avatar_url, created_at, updated_at');
+      .select(`
+        id, email, full_name, role, team, avatar_url, created_at, updated_at, branch_id,
+        office_locations:branch_id(id, name)
+      `);
 
     console.log('📋 Showing all users (no team restrictions for chat)');
 
@@ -52,7 +55,7 @@ router.get('/', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
   try {
     console.log('👤 POST /api/users - Creating new user:', req.body);
-    const { email, full_name, password, role, team } = req.body;
+    const { email, full_name, password, role, team, branch_id } = req.body;
 
     // Validate required fields
     if (!email || !full_name || !password || !team) {
@@ -68,13 +71,29 @@ router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
       });
     }
 
+    // Validate branch_id if provided
+    if (branch_id) {
+      const { data: branch, error: branchError } = await supabase
+        .from('office_locations')
+        .select('id, name')
+        .eq('id', branch_id)
+        .eq('is_active', true)
+        .single();
+
+      if (branchError || !branch) {
+        return res.status(400).json({ 
+          error: 'Invalid branch selected' 
+        });
+      }
+    }
+
     // Generate a UUID for the new user
     const newUserId = uuidv4();
 
     // Hash the password
     const password_hash = await bcrypt.hash(password, 10);
 
-    // Create profile with hashed password
+    // Create profile with hashed password and branch
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .insert({
@@ -83,9 +102,10 @@ router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
         full_name,
         password_hash,
         role: role || 'employee',
-        team
+        team,
+        branch_id
       })
-      .select('id, email, full_name, role, team, created_at')
+      .select('id, email, full_name, role, team, branch_id, created_at')
       .single();
 
     if (profileError) {
@@ -300,6 +320,58 @@ router.put('/change-password', authMiddleware, async (req, res) => {
   }
 });
 
+// Admin change user password
+router.put('/:id/change-password', authMiddleware, requireRole(['admin']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'New password is required' }
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Password must be at least 6 characters' }
+      });
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update password in database
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ 
+        password_hash: newPasswordHash,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+
+    if (updateError) {
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'UPDATE_ERROR', message: updateError.message }
+      });
+    }
+
+    res.json({ 
+      success: true,
+      message: 'User password changed successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Error changing user password:', error);
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message }
+    });
+  }
+});
+
 // Get user statistics
 router.get('/:id/stats', authMiddleware, async (req, res) => {
   try {
@@ -343,6 +415,36 @@ router.get('/:id/stats', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Get office locations (for branch selection)
+router.get('/office-locations', authMiddleware, async (req, res) => {
+  try {
+    const { data: offices, error } = await supabase
+      .from('office_locations')
+      .select('id, name, latitude, longitude, is_active')
+      .eq('is_active', true)
+      .order('name');
+
+    if (error) {
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: error.message }
+      });
+    }
+
+    res.json({ 
+      success: true,
+      data: offices || [],
+      message: 'Office locations retrieved successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Error getting office locations:', error);
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message }
+    });
   }
 });
 

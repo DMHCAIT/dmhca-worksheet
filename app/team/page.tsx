@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ProtectedRoute, useAuth } from '@/lib/auth/AuthProvider'
 import { useUsers, useCreateUser, useUpdateUser } from '@/lib/hooks'
@@ -8,31 +8,59 @@ import { TableSkeleton } from '@/components/LoadingSkeleton'
 import { ErrorDisplay } from '@/components/ErrorDisplay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { CreateUserRequest, User } from '@/types'
-import { Edit2 } from 'lucide-react'
+import { Edit2, Key } from 'lucide-react'
 
 function TeamContent() {
   const { user } = useAuth()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [filterDepartment, setFilterDepartment] = useState<string>('')
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [passwordUser, setPasswordUser] = useState<User | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [offices, setOffices] = useState<any[]>([])
   const [newUser, setNewUser] = useState<CreateUserRequest>({
     email: '',
     password: '',
     full_name: '',
     role: 'employee',
     department: '',
-    phone: ''
+    phone: '',
+    branch_id: null
   })
   const [editUser, setEditUser] = useState({
     full_name: '',
     role: 'employee',
     department: '',
-    phone: ''
+    phone: '',
+    branch_id: null
   })
 
   const { data: users = [], isLoading, error } = useUsers()
   const createUser = useCreateUser()
   const updateUser = useUpdateUser()
+
+  // Fetch office locations
+  useEffect(() => {
+    const fetchOffices = async () => {
+      try {
+        const token = localStorage.getItem('authToken')
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/office-locations`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        const data = await response.json()
+        if (data.success) {
+          setOffices(data.data)
+        }
+      } catch (error) {
+        console.error('Error fetching offices:', error)
+      }
+    }
+    fetchOffices()
+  }, [])
 
   // Get unique departments from users
   const departments = useMemo(() => {
@@ -88,10 +116,42 @@ function TeamContent() {
         full_name: editUser.full_name,
         role: editUser.role,
         department: editUser.department,
-        phone: editUser.phone
+        phone: editUser.phone,
+        branch_id: editUser.branch_id
       }
     })
     setEditingUser(null)
+  }
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!passwordUser) return
+
+    try {
+      const token = localStorage.getItem('authToken')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${passwordUser.id}/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          newPassword
+        })
+      })
+
+      const data = await response.json()
+      if (!data.success) {
+        throw new Error(data.error?.message || 'Failed to change password')
+      }
+
+      alert('Password changed successfully!')
+      setShowPasswordModal(false)
+      setPasswordUser(null)
+      setNewPassword('')
+    } catch (error) {
+      alert(error.message || 'Error changing password')
+    }
   }
 
   const canManageTeam = user?.role === 'admin' || user?.role === 'team_lead'
@@ -216,13 +276,28 @@ function TeamContent() {
                   </td>
                   {canManageTeam && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button
-                        onClick={() => handleEditClick(member)}
-                        className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                        Edit
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditClick(member)}
+                          className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Edit
+                        </button>
+                        {user?.role === 'admin' && (
+                          <button
+                            onClick={() => {
+                              setPasswordUser(member)
+                              setShowPasswordModal(true)
+                              setNewPassword('')
+                            }}
+                            className="text-green-600 hover:text-green-800 flex items-center gap-1"
+                          >
+                            <Key className="w-4 h-4" />
+                            Password
+                          </button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -318,6 +393,24 @@ function TeamContent() {
                     <option value="digital marketing">Digital Marketing</option>
                     <option value="sales">Sales</option>
                     <option value="it">IT</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Branch Office
+                  </label>
+                  <select
+                    value={newUser.branch_id || ''}
+                    onChange={(e) => setNewUser({ ...newUser, branch_id: e.target.value ? parseInt(e.target.value) : null })}
+                    className="input"
+                  >
+                    <option value="">Select branch</option>
+                    {offices.map(office => (
+                      <option key={office.id} value={office.id}>
+                        {office.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -461,6 +554,58 @@ function TeamContent() {
                   disabled={updateUser.isPending}
                 >
                   {updateUser.isPending ? 'Updating...' : 'Update Member'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showPasswordModal && passwordUser && user?.role === 'admin' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <h2 className="text-2xl font-bold mb-6">Change Password</h2>
+            <p className="text-gray-600 mb-4">
+              Changing password for: <strong>{passwordUser.full_name}</strong>
+            </p>
+            
+            <form onSubmit={handlePasswordChange}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    New Password *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="input"
+                    placeholder="Enter new password"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordModal(false)
+                    setPasswordUser(null)
+                    setNewPassword('')
+                  }}
+                  className="btn btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary flex-1"
+                >
+                  Change Password
                 </button>
               </div>
             </form>
