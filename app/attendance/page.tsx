@@ -43,7 +43,9 @@ export default function AttendancePage() {
           },
         })
         const data = await response.json()
-        console.log('🔍 Attendance API Response:', data)
+        if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+          console.log('🔍 Attendance API Response:', data)
+        }
         return data.data
       } catch (error) {
         console.error('❌ API Error:', error)
@@ -255,16 +257,19 @@ export default function AttendancePage() {
   const canClockIn = attendanceData?.canCheckIn ?? (!attendance || !attendance.clock_in_time || attendance.clock_out_time)
   const canClockOut = attendanceData?.canCheckOut ?? (attendance && attendance.clock_in_time && !attendance.clock_out_time)
 
-  console.log('🔍 Attendance Debug:', {
-    attendanceData,
-    attendance,
-    canClockIn,
-    canClockOut,
-    apiCanCheckIn: attendanceData?.canCheckIn,
-    apiCanCheckOut: attendanceData?.canCheckOut,
-    hasClockInTime: attendance?.clock_in_time,
-    hasClockOutTime: attendance?.clock_out_time
-  })
+  // Debug logging only in development
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    console.log('🔍 Attendance Debug:', {
+      attendanceData,
+      attendance,
+      canClockIn,
+      canClockOut,
+      apiCanCheckIn: attendanceData?.canCheckIn,
+      apiCanCheckOut: attendanceData?.canCheckOut,
+      hasClockInTime: attendance?.clock_in_time,
+      hasClockOutTime: attendance?.clock_out_time
+    })
+  }
 
   return (
     <DashboardLayout>
@@ -322,9 +327,11 @@ export default function AttendancePage() {
             {/* Clock In/Out Buttons */}
             <div className="space-y-3">
               {/* For testing - show current state */}
-              <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-                Debug: canClockIn={canClockIn.toString()}, canClockOut={canClockOut.toString()}
-              </div>
+              {process.env.NODE_ENV === 'development' && (
+                <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                  Debug: canClockIn={String(canClockIn ?? 'undefined')}, canClockOut={String(canClockOut ?? 'undefined')}
+                </div>
+              )}
               
               {canClockIn && (
                 <button
