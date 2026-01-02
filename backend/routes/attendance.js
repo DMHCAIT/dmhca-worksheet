@@ -687,4 +687,256 @@ function checkWorkingHours(clockInTime, branchId) {
   return timeInMinutes >= startTime && timeInMinutes <= endTime;
 }
 
+// Live attendance monitoring endpoint
+router.get('/live', authMiddleware, requireRole(['admin', 'team_lead']), async (req, res) => {
+  try {
+    const { branch } = req.query;
+    const today = new Date().toISOString().split('T')[0];
+    
+    console.log('📊 GET /api/attendance/live - Branch filter:', branch);
+
+    // Build query for live attendance
+    let attendanceQuery = supabase
+      .from('attendance_records')
+      .select(`
+        id,
+        user_id,
+        clock_in_time,
+        clock_out_time,
+        is_within_office,
+        total_hours,
+        date,
+        profiles:user_id (
+          id,
+          full_name,
+          email,
+          role,
+          department,
+          branch_id,
+          office_locations:branch_id (
+            id,
+            name,
+            cycle_type
+          )
+        )
+      `)
+      .eq('date', today);
+
+    // Add branch filter if specified
+    if (branch) {
+      attendanceQuery = attendanceQuery.eq('profiles.office_locations.name', branch);
+    }
+
+    const { data: attendanceRecords, error: attendanceError } = await attendanceQuery;
+
+    if (attendanceError) {
+      console.error('❌ Error fetching live attendance:', attendanceError);
+      return res.status(400).json({
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: attendanceError.message }
+      });
+    }
+
+    // Get all users for comparison (to find absent users)
+    let usersQuery = supabase
+      .from('profiles')
+      .select(`
+        id,
+        full_name,
+        email,
+        role,
+        department,
+        branch_id,
+        office_locations:branch_id (
+          id,
+          name,
+          cycle_type
+        )
+      `)
+      .neq('role', 'admin');
+
+    if (branch) {
+      usersQuery = usersQuery.eq('office_locations.name', branch);
+    }
+
+    const { data: allUsers, error: usersError } = await usersQuery;
+
+    if (usersError) {
+      console.error('❌ Error fetching users:', usersError);
+      return res.status(400).json({
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: usersError.message }
+      });
+    }
+
+    // Process live attendance data
+    const userAttendanceMap = new Map();
+    attendanceRecords?.forEach(record => {
+      if (record.profiles) {
+        const user = record.profiles;
+        userAttendanceMap.set(user.id, {
+          user_id: user.id,
+          user_name: user.full_name,
+          user_email: user.email,
+          department: user.department || 'Unassigned',
+          branch_name: user.office_locations?.name || 'No Branch',
+          status: record.clock_out_time ? 'clocked_out' : 'clocked_in',
+          clock_in_time: record.clock_in_time,
+          hours_worked: record.total_hours || 0,
+          is_within_office: record.is_within_office
+        });
+      }
+    });
+
+    // Add users who haven't checked in
+    const liveAttendances = [];
+    allUsers?.forEach(user => {
+      if (userAttendanceMap.has(user.id)) {
+        liveAttendances.push(userAttendanceMap.get(user.id));
+      } else {
+        liveAttendances.push({
+          user_id: user.id,
+          user_name: user.full_name,
+          user_email: user.email,
+          department: user.department || 'Unassigned',
+          branch_name: user.office_locations?.name || 'No Branch',
+          status: 'not_started',
+          clock_in_time: null,
+          hours_worked: 0,
+          is_within_office: false
+        });
+      }
+    });
+
+    // Calculate stats
+    const stats = {
+      totalEmployees: allUsers?.length || 0,
+      currentlyWorking: attendanceRecords?.filter(r => r.clock_in_time && !r.clock_out_time).length || 0,
+      onTimeToday: attendanceRecords?.filter(r => {
+        if (!r.clock_in_time) return false;
+        const clockInTime = new Date(`2000-01-01T${r.clock_in_time}`);
+        return clockInTime <= new Date('2000-01-01T10:00:00');
+      }).length || 0,
+      lateToday: attendanceRecords?.filter(r => {
+        if (!r.clock_in_time) return false;
+        const clockInTime = new Date(`2000-01-01T${r.clock_in_time}`);
+        return clockInTime > new Date('2000-01-01T10:00:00');
+      }).length || 0,
+      averageHours: attendanceRecords?.reduce((acc, r) => acc + (r.total_hours || 0), 0) / Math.max(attendanceRecords?.length || 0, 1),
+      absentToday: (allUsers?.length || 0) - (attendanceRecords?.length || 0),
+      remoteWorking: attendanceRecords?.filter(r => !r.is_within_office).length || 0,
+      officeWorking: attendanceRecords?.filter(r => r.is_within_office).length || 0
+    };
+
+    res.json({
+      success: true,
+      data: {
+        stats,
+        attendances: liveAttendances
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error in live attendance endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch live attendance data' }
+    });
+  }
+});
+
+// Enhanced records endpoint for monitoring
+router.get('/records', authMiddleware, requireRole(['admin', 'team_lead']), async (req, res) => {
+  try {
+    const { date, branch, department, status } = req.query;
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    
+    console.log('📋 GET /api/attendance/records - Date:', targetDate, 'Branch:', branch, 'Dept:', department);
+
+    // Build query
+    let query = supabase
+      .from('attendance_records')
+      .select(`
+        id,
+        user_id,
+        clock_in_time,
+        clock_out_time,
+        is_within_office,
+        total_hours,
+        date,
+        created_at,
+        profiles:user_id (
+          id,
+          full_name,
+          email,
+          role,
+          department,
+          branch_id,
+          office_locations:branch_id (
+            id,
+            name,
+            cycle_type
+          )
+        )
+      `)
+      .eq('date', targetDate)
+      .order('clock_in_time', { ascending: false });
+
+    // Add filters
+    if (department) {
+      query = query.eq('profiles.department', department);
+    }
+
+    const { data: records, error } = await query;
+
+    if (error) {
+      console.error('❌ Error fetching attendance records:', error);
+      return res.status(400).json({
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: error.message }
+      });
+    }
+
+    // Process and filter records
+    let processedRecords = records?.map(record => ({
+      id: record.id,
+      user_id: record.user_id,
+      user_name: record.profiles?.full_name || 'Unknown',
+      user_email: record.profiles?.email || '',
+      user_department: record.profiles?.department || '',
+      user_role: record.profiles?.role || '',
+      branch_name: record.profiles?.office_locations?.name || 'No Branch',
+      branch_id: record.profiles?.branch_id || null,
+      clock_in_time: record.clock_in_time,
+      clock_out_time: record.clock_out_time,
+      is_within_office: record.is_within_office,
+      total_hours: record.total_hours,
+      date: record.date,
+      status: record.clock_out_time ? 'completed' : (record.clock_in_time ? 'active' : 'incomplete'),
+      created_at: record.created_at
+    })) || [];
+
+    // Apply additional filters
+    if (branch) {
+      processedRecords = processedRecords.filter(record => record.branch_name === branch);
+    }
+
+    if (status) {
+      processedRecords = processedRecords.filter(record => record.status === status);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        records: processedRecords
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error in attendance records endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch attendance records' }
+    });
+  }
+});
+
 module.exports = router;

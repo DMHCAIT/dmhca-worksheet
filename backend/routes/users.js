@@ -423,7 +423,7 @@ router.get('/office-locations', authMiddleware, async (req, res) => {
   try {
     const { data: offices, error } = await supabase
       .from('office_locations')
-      .select('id, name, latitude, longitude, is_active')
+      .select('id, name, latitude, longitude, is_active, cycle_type, cycle_start_day, work_start_time, work_end_time')
       .eq('is_active', true)
       .order('name');
 

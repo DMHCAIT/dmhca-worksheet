@@ -66,7 +66,7 @@ export default function AttendanceReportsPage() {
   const [dateRange, setDateRange] = useState('today') // today, week, month, current_period
 
   // Fetch office locations for branch filtering
-  const { data: offices } = useQuery<Office[]>({
+  const { data: offices, isLoading: officesLoading, error: officesError } = useQuery<Office[]>({
     queryKey: ['office-locations'],
     queryFn: async () => {
       const token = localStorage.getItem('authToken')
@@ -77,6 +77,7 @@ export default function AttendanceReportsPage() {
         },
       })
       const data = await response.json()
+      console.log('📍 Office locations response:', data)
       return data.success ? data.data : []
     },
   })
@@ -306,6 +307,9 @@ export default function AttendanceReportsPage() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">All Branches</option>
+                {officesLoading && <option disabled>Loading branches...</option>}
+                {officesError && <option disabled>Error loading branches</option>}
+                {offices?.length === 0 && <option disabled>No branches found</option>}
                 {offices?.map((office) => (
                   <option key={office.id} value={office.name}>
                     {office.name} 
@@ -313,6 +317,11 @@ export default function AttendanceReportsPage() {
                   </option>
                 ))}
               </select>
+              {process.env.NODE_ENV === 'development' && (
+                <div className="text-xs text-gray-500 mt-1">
+                  Debug: {offices?.length || 0} offices loaded
+                </div>
+              )}
             </div>
 
             <div>

@@ -12,6 +12,8 @@ const navigation = [
   { name: 'Tasks', href: '/tasks', icon: '✅', roles: ['admin', 'team_lead', 'employee'] },
   { name: 'Work Projections', href: '/projections', icon: '📊', roles: ['admin', 'team_lead', 'employee'] },
   { name: 'Attendance', href: '/attendance', icon: '📅', roles: ['admin', 'team_lead', 'employee'] },
+  { name: 'Attendance Monitor', href: '/attendance/monitor', icon: '👀', roles: ['admin', 'team_lead'] },
+  { name: 'Attendance Reports', href: '/attendance/reports', icon: '📋', roles: ['admin', 'team_lead'] },
   { name: 'Chat', href: '/chat', icon: '💬', roles: ['admin', 'team_lead', 'employee'] },
   { name: 'Team', href: '/team', icon: '👥', roles: ['admin', 'team_lead'] },
   { name: 'Reports', href: '/reports', icon: '📈', roles: ['admin', 'team_lead'] },
