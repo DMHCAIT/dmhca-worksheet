@@ -11,7 +11,7 @@ interface ReportFiltersBarProps {
   filters: ReportFilters
   onFilterChange: (filters: ReportFilters) => void
   employees: Array<{ id: string; name: string }>
-  userRole: 'admin' | 'team_lead' | 'employee'
+  userRole: 'admin' | 'manager' | 'team_lead' | 'employee'
   currentUserName?: string
 }
 

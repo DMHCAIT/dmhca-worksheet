@@ -14,18 +14,15 @@ interface CreateUserModalProps {
 const roleOptions: SelectOption<UserRole>[] = [
   { value: 'employee', label: 'Employee', description: 'Standard team member' },
   { value: 'team_lead', label: 'Team Lead', description: 'Team leader with additional permissions' },
+  { value: 'manager', label: 'Manager', description: 'Department manager with oversight responsibilities' },
   { value: 'admin', label: 'Administrator', description: 'Full system access' },
 ]
 
 const departments = [
-  'Administration',
-  'Medical Affairs', 
-  'Academic Affairs',
-  'Student Services',
-  'IT Department',
-  'Finance & Accounts',
-  'Human Resources',
-  'Facilities Management'
+  'Admin',
+  'Digital Marketing',
+  'Sales',
+  'IT'
 ]
 
 export function CreateUserModal({

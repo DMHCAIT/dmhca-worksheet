@@ -1,6 +1,6 @@
 // Domain entity type definitions
 
-export type UserRole = 'admin' | 'team_lead' | 'employee'
+export type UserRole = 'admin' | 'manager' | 'team_lead' | 'employee'
 export type TaskStatus = 'pending' | 'in_progress' | 'completed'
 export type TaskPriority = 'low' | 'medium' | 'high'
 export type ProjectStatus = 'active' | 'completed' | 'on_hold'

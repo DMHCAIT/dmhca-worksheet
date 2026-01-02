@@ -5,7 +5,7 @@ export const userSchema = z.object({
   id: z.string(),
   email: z.string().email(),
   full_name: z.string(),
-  role: z.enum(['admin', 'team_lead', 'employee']),
+  role: z.enum(['admin', 'manager', 'team_lead', 'employee']),
   department: z.string().optional(),
   phone: z.string().optional(),
   created_at: z.string().optional(),
@@ -16,7 +16,7 @@ export const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   full_name: z.string().min(2),
-  role: z.enum(['admin', 'team_lead', 'employee']),
+  role: z.enum(['admin', 'manager', 'team_lead', 'employee']),
   department: z.string().optional(),
   phone: z.string().optional(),
 })

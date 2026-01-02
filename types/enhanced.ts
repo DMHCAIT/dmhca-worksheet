@@ -1,6 +1,6 @@
 // Enhanced type definitions with strict typing
 
-export type UserRole = 'admin' | 'team_lead' | 'employee'
+export type UserRole = 'admin' | 'manager' | 'team_lead' | 'employee'
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
 export type ProjectStatus = 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled'

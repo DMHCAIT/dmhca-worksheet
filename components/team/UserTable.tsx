@@ -12,6 +12,7 @@ interface UserTableProps {
 
 const roleColors = {
   admin: 'bg-red-100 text-red-800',
+  manager: 'bg-purple-100 text-purple-800',
   team_lead: 'bg-blue-100 text-blue-800',
   employee: 'bg-green-100 text-green-800',
 } as const
@@ -41,7 +42,9 @@ const formatDate = (dateString: string): string => {
 
 const RoleBadge: React.FC<{ role: UserRole }> = ({ role }) => {
   const colorClass = roleColors[role] || 'bg-gray-100 text-gray-800'
-  const roleLabel = role === 'team_lead' ? 'Team Lead' : role.charAt(0).toUpperCase() + role.slice(1)
+  const roleLabel = role === 'team_lead' ? 'Team Lead' : 
+                    role === 'manager' ? 'Manager' :
+                    role.charAt(0).toUpperCase() + role.slice(1)
   
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
