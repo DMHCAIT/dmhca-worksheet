@@ -489,4 +489,108 @@ router.put('/office-settings', authMiddleware, requireRole(['admin']), async (re
   }
 });
 
+// Admin reports endpoint - Get all attendance records with filtering
+router.get('/reports', authMiddleware, requireRole(['admin']), async (req, res) => {
+  try {
+    const { date, range, employee, startDate, endDate } = req.query;
+    
+    console.log('📊 GET /api/attendance/reports - Admin:', req.user.email);
+    console.log('🔍 Filters:', { date, range, employee, startDate, endDate });
+    
+    let query = supabase
+      .from('attendance_records')
+      .select(`
+        *,
+        user:profiles!user_id(
+          id, full_name, email, role, department, team
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    // Apply filters based on range or specific dates
+    if (range === 'today' || date) {
+      const targetDate = date || new Date().toISOString().split('T')[0];
+      query = query.eq('date', targetDate);
+    } else if (range === 'week') {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      query = query.gte('date', weekAgo.toISOString().split('T')[0]);
+    } else if (range === 'month') {
+      const monthAgo = new Date();
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      query = query.gte('date', monthAgo.toISOString().split('T')[0]);
+    }
+
+    // Apply date range filter
+    if (startDate) {
+      query = query.gte('date', startDate);
+    }
+    if (endDate) {
+      query = query.lte('date', endDate);
+    }
+
+    // Apply employee filter
+    if (employee) {
+      query = query.eq('user_id', employee);
+    }
+
+    const { data: attendanceRecords, error } = await query;
+
+    if (error) {
+      console.error('❌ Error fetching attendance reports:', error);
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    // Process records to include user information
+    const records = (attendanceRecords || []).map(record => ({
+      id: record.id,
+      user_id: record.user_id,
+      user_name: record.user?.full_name || record.user?.email || 'Unknown',
+      user_email: record.user?.email || '',
+      user_department: record.user?.department || '',
+      user_team: record.user?.team || '',
+      clock_in_time: record.clock_in_time,
+      clock_out_time: record.clock_out_time,
+      clock_in_location: record.clock_in_location,
+      clock_out_location: record.clock_out_location,
+      is_within_office: record.is_within_office,
+      total_hours: record.total_hours,
+      date: record.date,
+      created_at: record.created_at
+    }));
+
+    // Calculate summary statistics
+    const totalEmployees = new Set(records.map(r => r.user_id)).size;
+    const presentToday = range === 'today' || date ? 
+      records.filter(r => r.clock_in_time && r.is_within_office).length : 0;
+    const totalHours = records.reduce((sum, r) => sum + (parseFloat(r.total_hours) || 0), 0);
+    const averageHours = records.length > 0 ? (totalHours / records.length) : 0;
+
+    const response = {
+      success: true,
+      data: {
+        records,
+        summary: {
+          totalEmployees,
+          presentToday,
+          totalHours: parseFloat(totalHours.toFixed(2)),
+          averageHours: parseFloat(averageHours.toFixed(2))
+        }
+      }
+    };
+
+    console.log('✅ Attendance reports retrieved:', `${records.length} records, ${totalEmployees} employees`);
+    res.json(response);
+  } catch (error) {
+    console.error('❌ Server error fetching attendance reports:', error);
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
 module.exports = router;

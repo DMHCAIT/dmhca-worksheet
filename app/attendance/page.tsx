@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { MapPin, Clock, CheckCircle2, XCircle } from 'lucide-react'
+import { MapPin, Clock, CheckCircle2, XCircle, Calendar, TrendingUp } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface AttendanceRecord {
@@ -16,6 +16,12 @@ interface AttendanceRecord {
   is_within_office: boolean
   total_hours?: number
   date: string
+}
+
+interface UserProfile {
+  role: 'admin' | 'team_lead' | 'employee'
+  full_name: string
+  email: string
 }
 
 export default function AttendancePage() {
@@ -43,6 +49,42 @@ export default function AttendancePage() {
 
   const attendance = attendanceData?.attendance
   const office = attendanceData?.office
+
+  // Fetch user profile to check role
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile'],
+    queryFn: async () => {
+      const token = localStorage.getItem('authToken')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      const data = await response.json()
+      return data.user
+    },
+  })
+
+  // Fetch personal attendance history
+  const { data: attendanceHistory } = useQuery({
+    queryKey: ['attendance-history'],
+    queryFn: async () => {
+      const token = localStorage.getItem('authToken')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/attendance/history?limit=10`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      const data = await response.json()
+      if (!data.success) throw new Error(data.error?.message || 'Failed to fetch history')
+      return data.data
+    },
+  })
+
+  const history = attendanceHistory?.attendance || []
+  const summary = attendanceHistory?.summary || {}
 
   // Get current location
   const getCurrentLocation = () => {
@@ -189,8 +231,18 @@ export default function AttendancePage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto p-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Attendance</h1>
+      <div className="max-w-6xl mx-auto p-6 space-y-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-gray-900">Attendance</h1>
+          {userProfile?.role === 'admin' && (
+            <a
+              href="/attendance/reports"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              View All Reports
+            </a>
+          )}
+        </div>
 
         {/* Current Status */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -298,9 +350,115 @@ export default function AttendancePage() {
           </div>
         </div>
 
+        {/* Summary Stats */}
+        {summary && Object.keys(summary).length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+              <div className="flex items-center justify-center mb-2">
+                <TrendingUp className="w-5 h-5 text-blue-600" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{summary.totalDays || 0}</p>
+              <p className="text-sm text-gray-600">Days Worked</p>
+            </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+              <div className="flex items-center justify-center mb-2">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{summary.validCheckIns || 0}</p>
+              <p className="text-sm text-gray-600">Office Check-ins</p>
+            </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+              <div className="flex items-center justify-center mb-2">
+                <Clock className="w-5 h-5 text-purple-600" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{summary.totalHours || 0}h</p>
+              <p className="text-sm text-gray-600">Total Hours</p>
+            </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+              <div className="flex items-center justify-center mb-2">
+                <Calendar className="w-5 h-5 text-orange-600" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{summary.averageHours || 0}h</p>
+              <p className="text-sm text-gray-600">Avg Per Day</p>
+            </div>
+          </div>
+        )}
+
+        {/* My Attendance History */}
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-900">My Attendance History</h2>
+            <p className="text-sm text-gray-600">Your recent attendance records</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clock In</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clock Out</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {history.length > 0 ? history.map((record: AttendanceRecord) => (
+                  <tr key={record.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {new Date(record.date).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {record.clock_in_time ? 
+                        new Date(record.clock_in_time).toLocaleTimeString('en-US', {
+                          hour12: true,
+                          hour: 'numeric',
+                          minute: '2-digit'
+                        }) : '--'
+                      }
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {record.clock_out_time ? 
+                        new Date(record.clock_out_time).toLocaleTimeString('en-US', {
+                          hour12: true,
+                          hour: 'numeric',
+                          minute: '2-digit'
+                        }) : '--'
+                      }
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {record.total_hours ? `${record.total_hours}h` : '--'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        record.is_within_office 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-orange-100 text-orange-800'
+                      }`}>
+                        {record.is_within_office ? 'Office' : 'Remote'}
+                      </span>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                      <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p>No attendance records found</p>
+                      <p className="text-sm">Start tracking your attendance by clocking in!</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         {/* Office Location Info */}
         {office && (
-          <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 mb-6">
+          <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
             <div className="flex items-center">
               <MapPin className="w-5 h-5 text-blue-600 mr-2" />
               <div>
