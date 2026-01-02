@@ -102,7 +102,8 @@ function TeamContent() {
       full_name: member.full_name,
       role: member.role,
       department: member.department || member.team || '',
-      phone: member.phone || ''
+      phone: member.phone || '',
+      branch_id: member.branch_id || null
     })
   }
 

@@ -501,26 +501,42 @@ router.put('/office-settings', authMiddleware, requireRole(['admin']), async (re
   }
 });
 
-// Admin reports endpoint - Get all attendance records with filtering
+// Admin reports endpoint - Get all attendance records with branch-specific filtering
 router.get('/reports', authMiddleware, requireRole(['admin']), async (req, res) => {
   try {
-    const { date, range, employee, startDate, endDate } = req.query;
+    const { date, range, employee, startDate, endDate, branch } = req.query;
     
     console.log('📊 GET /api/attendance/reports - Admin:', req.user.email);
-    console.log('🔍 Filters:', { date, range, employee, startDate, endDate });
+    console.log('🔍 Filters:', { date, range, employee, startDate, endDate, branch });
     
     let query = supabase
       .from('attendance_records')
       .select(`
         *,
         user:profiles!user_id(
-          id, full_name, email, role, department, team
+          id, full_name, email, role, department, team, branch_id,
+          office_locations:branch_id(id, name, cycle_type, cycle_start_day)
         )
       `)
       .order('created_at', { ascending: false });
 
-    // Apply filters based on range or specific dates
-    if (range === 'today' || date) {
+    // Handle branch-specific date filtering
+    if (branch && (range === 'current_period' || (!date && !startDate && !endDate))) {
+      // Get current attendance period for specific branch
+      const { data: periodData, error: periodError } = await supabase
+        .rpc('get_attendance_period', {
+          branch_id: parseInt(branch),
+          reference_date: new Date().toISOString().split('T')[0]
+        });
+
+      if (periodError) {
+        console.error('❌ Error getting attendance period:', periodError);
+      } else if (periodData && periodData.length > 0) {
+        const period = periodData[0];
+        query = query.gte('date', period.period_start).lte('date', period.period_end);
+        console.log('📅 Using branch period:', period.period_name, period.period_start, 'to', period.period_end);
+      }
+    } else if (range === 'today' || date) {
       const targetDate = date || new Date().toISOString().split('T')[0];
       query = query.eq('date', targetDate);
     } else if (range === 'week') {
@@ -546,6 +562,20 @@ router.get('/reports', authMiddleware, requireRole(['admin']), async (req, res) 
       query = query.eq('user_id', employee);
     }
 
+    // Apply branch filter (filter users by branch)
+    if (branch && range !== 'current_period') {
+      // First get users from specific branch
+      const { data: branchUsers, error: branchError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('branch_id', parseInt(branch));
+        
+      if (!branchError && branchUsers && branchUsers.length > 0) {
+        const userIds = branchUsers.map(u => u.id);
+        query = query.in('user_id', userIds);
+      }
+    }
+
     const { data: attendanceRecords, error } = await query;
 
     if (error) {
@@ -556,30 +586,64 @@ router.get('/reports', authMiddleware, requireRole(['admin']), async (req, res) 
       });
     }
 
-    // Process records to include user information
-    const records = (attendanceRecords || []).map(record => ({
-      id: record.id,
-      user_id: record.user_id,
-      user_name: record.user?.full_name || record.user?.email || 'Unknown',
-      user_email: record.user?.email || '',
-      user_department: record.user?.department || '',
-      user_team: record.user?.team || '',
-      clock_in_time: record.clock_in_time,
-      clock_out_time: record.clock_out_time,
-      clock_in_location: record.clock_in_location,
-      clock_out_location: record.clock_out_location,
-      is_within_office: record.is_within_office,
-      total_hours: record.total_hours,
-      date: record.date,
-      created_at: record.created_at
-    }));
+    // Process records to include user and branch information
+    const records = (attendanceRecords || []).map(record => {
+      const branchInfo = record.user?.office_locations;
+      const isWithinWorkingHours = branchInfo ? 
+        checkWorkingHours(record.clock_in_time, branchInfo.id) : true;
+        
+      return {
+        id: record.id,
+        user_id: record.user_id,
+        user_name: record.user?.full_name || record.user?.email || 'Unknown',
+        user_email: record.user?.email || '',
+        user_department: record.user?.department || '',
+        user_team: record.user?.team || '',
+        branch_name: branchInfo?.name || 'No Branch',
+        branch_cycle: branchInfo?.cycle_type || 'calendar',
+        clock_in_time: record.clock_in_time,
+        clock_out_time: record.clock_out_time,
+        clock_in_location: record.clock_in_location,
+        clock_out_location: record.clock_out_location,
+        is_within_office: record.is_within_office,
+        is_within_working_hours: isWithinWorkingHours,
+        total_hours: record.total_hours,
+        date: record.date,
+        created_at: record.created_at
+      };
+    });
 
-    // Calculate summary statistics
+    // Calculate branch-aware summary statistics
     const totalEmployees = new Set(records.map(r => r.user_id)).size;
     const presentToday = range === 'today' || date ? 
       records.filter(r => r.clock_in_time && r.is_within_office).length : 0;
+    const onTimeCount = records.filter(r => r.is_within_working_hours && r.clock_in_time).length;
     const totalHours = records.reduce((sum, r) => sum + (parseFloat(r.total_hours) || 0), 0);
     const averageHours = records.length > 0 ? (totalHours / records.length) : 0;
+
+    // Group by branch for summary
+    const branchSummary = records.reduce((acc, record) => {
+      const branch = record.branch_name;
+      if (!acc[branch]) {
+        acc[branch] = {
+          name: branch,
+          cycle: record.branch_cycle,
+          totalRecords: 0,
+          presentEmployees: 0,
+          onTimeEmployees: 0,
+          totalHours: 0
+        };
+      }
+      acc[branch].totalRecords++;
+      if (record.clock_in_time && record.is_within_office) {
+        acc[branch].presentEmployees++;
+      }
+      if (record.is_within_working_hours) {
+        acc[branch].onTimeEmployees++;
+      }
+      acc[branch].totalHours += parseFloat(record.total_hours) || 0;
+      return acc;
+    }, {});
 
     const response = {
       success: true,
@@ -588,8 +652,10 @@ router.get('/reports', authMiddleware, requireRole(['admin']), async (req, res) 
         summary: {
           totalEmployees,
           presentToday,
+          onTimeCount,
           totalHours: parseFloat(totalHours.toFixed(2)),
-          averageHours: parseFloat(averageHours.toFixed(2))
+          averageHours: parseFloat(averageHours.toFixed(2)),
+          branchSummary: Object.values(branchSummary)
         }
       }
     };
@@ -604,5 +670,21 @@ router.get('/reports', authMiddleware, requireRole(['admin']), async (req, res) 
     });
   }
 });
+
+// Helper function to check working hours (simplified version for backend)
+function checkWorkingHours(clockInTime, branchId) {
+  if (!clockInTime) return false;
+  
+  const time = new Date(clockInTime);
+  const hours = time.getHours();
+  const minutes = time.getMinutes();
+  const timeInMinutes = hours * 60 + minutes;
+  
+  // Working hours: 10:00 AM (600 minutes) to 7:00 PM (1140 minutes)
+  const startTime = 10 * 60; // 10:00 AM
+  const endTime = 19 * 60;   // 7:00 PM
+  
+  return timeInMinutes >= startTime && timeInMinutes <= endTime;
+}
 
 module.exports = router;

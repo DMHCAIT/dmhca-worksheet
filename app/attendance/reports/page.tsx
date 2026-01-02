@@ -11,38 +11,71 @@ interface AttendanceRecord {
   user_id: string
   user_name: string
   user_email: string
+  user_department: string
+  branch_name: string
+  branch_cycle: string
   clock_in_time: string
   clock_out_time?: string
   clock_in_location: { lat: number; lng: number; accuracy: number }
   clock_out_location?: { lat: number; lng: number; accuracy: number }
   is_within_office: boolean
+  is_within_working_hours: boolean
   total_hours?: number
   date: string
   created_at: string
 }
 
+interface BranchSummary {
+  name: string
+  cycle: string
+  totalRecords: number
+  presentEmployees: number
+  onTimeEmployees: number
+  totalHours: number
+}
+
 interface AttendanceSummary {
   totalEmployees: number
   presentToday: number
+  onTimeCount: number
   totalHours: number
   averageHours: number
+  branchSummary: BranchSummary[]
 }
 
 export default function AttendanceReportsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [selectedEmployee, setSelectedEmployee] = useState('')
+  const [selectedBranch, setSelectedBranch] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [dateRange, setDateRange] = useState('today') // today, week, month
+  const [dateRange, setDateRange] = useState('today') // today, week, month, current_period
+
+  // Fetch office locations for branch filtering
+  const { data: offices } = useQuery({
+    queryKey: ['office-locations'],
+    queryFn: async () => {
+      const token = localStorage.getItem('authToken')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/office-locations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      const data = await response.json()
+      return data.success ? data.data : []
+    },
+  })
 
   // Fetch all attendance records (admin only)
   const { data: attendanceData, isLoading } = useQuery({
-    queryKey: ['attendance-reports', selectedDate, selectedEmployee, dateRange],
+    queryKey: ['attendance-reports', selectedDate, selectedEmployee, selectedBranch, dateRange],
     queryFn: async () => {
       const token = localStorage.getItem('authToken')
       const params = new URLSearchParams({
         date: selectedDate,
         range: dateRange,
-        ...(selectedEmployee && { employee: selectedEmployee })
+        ...(selectedEmployee && { employee: selectedEmployee }),
+        ...(selectedBranch && { branch: selectedBranch })
       })
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/attendance/reports?${params}`, {
@@ -101,16 +134,38 @@ export default function AttendanceReportsPage() {
   }
 
   const exportToCSV = () => {
-    const headers = ['Date', 'Employee', 'Email', 'Clock In', 'Clock Out', 'Total Hours', 'Status']
-    const csvData = filteredRecords.map(record => [
-      formatDate(record.date),
-      record.user_name || 'Unknown',
-      record.user_email || '',
-      formatTime(record.clock_in_time),
-      formatTime(record.clock_out_time),
-      record.total_hours ? `${record.total_hours.toFixed(2)}h` : '--',
-      record.is_within_office ? 'Present' : 'Remote'
-    ])
+    const headers = [
+      'Date',
+      'Employee', 
+      'Email',
+      'Branch',
+      'Cycle Type',
+      'Clock In',
+      'Clock Out',
+      'Total Hours',
+      'Time Status',
+      'Within Working Hours',
+      'Location Status'
+    ]
+    
+    const csvData = filteredRecords.map(record => {
+      const clockInTime = record.clock_in_time ? new Date(`2000-01-01T${record.clock_in_time}`) : null
+      const isOnTime = clockInTime && clockInTime <= new Date('2000-01-01T10:00:00')
+      
+      return [
+        formatDate(record.date),
+        record.user_name || 'Unknown',
+        record.user_email || '',
+        record.branch_name || 'Not Set',
+        record.branch_cycle === 'calendar' ? 'Calendar (1-31)' : 'Custom (26-25)',
+        formatTime(record.clock_in_time),
+        formatTime(record.clock_out_time),
+        record.total_hours ? `${record.total_hours.toFixed(2)}h` : '--',
+        isOnTime ? 'On Time' : 'Late',
+        record.is_within_working_hours ? 'Yes' : 'No',
+        record.is_within_office ? 'Office' : 'Remote'
+      ]
+    })
     
     const csvContent = [headers, ...csvData]
       .map(row => row.map(field => `"${field}"`).join(','))
@@ -120,7 +175,7 @@ export default function AttendanceReportsPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `attendance-report-${selectedDate}.csv`
+    a.download = `attendance-report-${selectedBranch || 'all-branches'}-${selectedDate}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -144,7 +199,7 @@ export default function AttendanceReportsPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -153,6 +208,9 @@ export default function AttendanceReportsPage() {
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Total Employees</p>
                 <p className="text-2xl font-bold text-gray-900">{summary.totalEmployees || 0}</p>
+                {selectedBranch && (
+                  <p className="text-xs text-blue-600">{selectedBranch}</p>
+                )}
               </div>
             </div>
           </div>
@@ -165,6 +223,11 @@ export default function AttendanceReportsPage() {
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Present Today</p>
                 <p className="text-2xl font-bold text-gray-900">{summary.presentToday || 0}</p>
+                {summary.totalEmployees > 0 && (
+                  <p className="text-xs text-green-600">
+                    {Math.round(((summary.presentToday || 0) / summary.totalEmployees) * 100)}% attendance
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -175,8 +238,13 @@ export default function AttendanceReportsPage() {
                 <Clock className="w-6 h-6 text-purple-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm text-gray-600">Total Hours</p>
-                <p className="text-2xl font-bold text-gray-900">{summary.totalHours || 0}h</p>
+                <p className="text-sm text-gray-600">On Time Today</p>
+                <p className="text-2xl font-bold text-gray-900">{summary.onTimeToday || 0}</p>
+                {summary.presentToday > 0 && (
+                  <p className="text-xs text-purple-600">
+                    {Math.round(((summary.onTimeToday || 0) / summary.presentToday) * 100)}% on time
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -189,6 +257,24 @@ export default function AttendanceReportsPage() {
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Avg Hours</p>
                 <p className="text-2xl font-bold text-gray-900">{summary.averageHours || 0}h</p>
+                <p className="text-xs text-orange-600">Standard: 9h</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <MapPin className="w-6 h-6 text-indigo-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-600">Valid Location</p>
+                <p className="text-2xl font-bold text-gray-900">{summary.validLocation || 0}</p>
+                {summary.presentToday > 0 && (
+                  <p className="text-xs text-indigo-600">
+                    {Math.round(((summary.validLocation || 0) / summary.presentToday) * 100)}% valid
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -196,7 +282,24 @@ export default function AttendanceReportsPage() {
 
         {/* Filters */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Branches</option>
+                {officeLocations?.map((office) => (
+                  <option key={office.id} value={office.name}>
+                    {office.name} 
+                    {office.cycle_type === 'calendar' ? ' (1st-31st)' : ' (26th-25th)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
               <select
@@ -206,7 +309,7 @@ export default function AttendanceReportsPage() {
               >
                 <option value="today">Today</option>
                 <option value="week">This Week</option>
-                <option value="month">This Month</option>
+                <option value="month">Current Cycle</option>
               </select>
             </div>
 
@@ -250,6 +353,29 @@ export default function AttendanceReportsPage() {
               </div>
             </div>
           </div>
+
+          {/* Branch-specific information */}
+          {selectedBranch && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <div className="flex items-center space-x-4 text-sm text-blue-800">
+                <span className="flex items-center">
+                  <Clock className="w-4 h-4 mr-1" />
+                  Working Hours: 10:00 AM - 7:00 PM
+                </span>
+                {officeLocations?.find(o => o.name === selectedBranch)?.cycle_type === 'calendar' ? (
+                  <span className="flex items-center">
+                    <Calendar className="w-4 h-4 mr-1" />
+                    Attendance Cycle: 1st to End of Month
+                  </span>
+                ) : (
+                  <span className="flex items-center">
+                    <Calendar className="w-4 h-4 mr-1" />
+                    Attendance Cycle: 26th to 25th
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Attendance Records Table */}
@@ -275,49 +401,88 @@ export default function AttendanceReportsPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clock In</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Clock Out</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Hours</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredRecords.map((record) => (
-                    <tr key={record.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {record.user_name || 'Unknown'}
+                  {filteredRecords.map((record) => {
+                    const clockInTime = record.clock_in_time ? new Date(`2000-01-01T${record.clock_in_time}`) : null
+                    const isOnTime = clockInTime && clockInTime <= new Date('2000-01-01T10:00:00')
+                    const isLate = clockInTime && clockInTime > new Date('2000-01-01T10:00:00')
+                    
+                    return (
+                      <tr key={record.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {record.user_name || 'Unknown'}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {record.user_email}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {record.user_email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <div className="flex items-center">
+                            <span>{record.branch_name || 'Not Set'}</span>
+                            {record.branch_cycle && (
+                              <span className="ml-2 text-xs text-gray-500">
+                                ({record.branch_cycle === 'calendar' ? '1-31' : '26-25'})
+                              </span>
+                            )}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(record.date)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatTime(record.clock_in_time)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatTime(record.clock_out_time)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {record.total_hours ? `${record.total_hours.toFixed(2)}h` : '--'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          record.is_within_office 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-orange-100 text-orange-800'
-                        }`}>
-                          {record.is_within_office ? 'Present (Office)' : 'Remote'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatDate(record.date)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <div className="flex items-center">
+                            <span>{formatTime(record.clock_in_time)}</span>
+                            {isLate && (
+                              <span className="ml-2 w-2 h-2 bg-red-500 rounded-full" title="Late arrival"></span>
+                            )}
+                            {isOnTime && (
+                              <span className="ml-2 w-2 h-2 bg-green-500 rounded-full" title="On time"></span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatTime(record.clock_out_time)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {record.total_hours ? `${record.total_hours.toFixed(2)}h` : '--'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {record.is_within_working_hours !== undefined ? (
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              record.is_within_working_hours 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {record.is_within_working_hours ? 'Within Hours' : 'Outside Hours'}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-500">--</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            record.is_within_office 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-orange-100 text-orange-800'
+                          }`}>
+                            {record.is_within_office ? 'Office' : 'Remote'}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
