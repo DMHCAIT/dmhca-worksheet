@@ -48,6 +48,14 @@ export default function AttendancePage() {
   })
 
   const attendance = attendanceData?.attendance
+  
+  // Debug logging
+  console.log('🔍 Attendance Debug:', {
+    attendanceData,
+    attendance,
+    canCheckIn: attendanceData?.canCheckIn,
+    canCheckOut: attendanceData?.canCheckOut
+  })
   const office = attendanceData?.office
 
   // Fetch user profile to check role
@@ -226,8 +234,9 @@ export default function AttendancePage() {
     getCurrentLocation()
   }, [])
 
-  const canClockIn = !attendance || !attendance.clock_in_time
-  const canClockOut = attendance && attendance.clock_in_time && !attendance.clock_out_time
+  // Use API response values for clock in/out availability
+  const canClockIn = attendanceData?.canCheckIn ?? (!attendance || !attendance.clock_in_time)
+  const canClockOut = attendanceData?.canCheckOut ?? (attendance && attendance.clock_in_time && !attendance.clock_out_time)
 
   return (
     <DashboardLayout>
@@ -328,12 +337,17 @@ export default function AttendancePage() {
                   </div>
                 )}
                 
-                {attendance.clock_out_time && (
+                {attendance.clock_out_time ? (
                   <div className="flex items-center text-gray-600">
                     <Clock className="w-4 h-4 mr-2" />
                     <span>Out: {new Date(attendance.clock_out_time).toLocaleTimeString()}</span>
                   </div>
-                )}
+                ) : attendance.clock_in_time ? (
+                  <div className="flex items-center text-blue-600">
+                    <Clock className="w-4 h-4 mr-2" />
+                    <span>Still clocked in - ready to clock out</span>
+                  </div>
+                ) : null}
 
                 {attendance.total_hours && (
                   <div className="flex items-center text-gray-600">
@@ -343,8 +357,9 @@ export default function AttendancePage() {
                 )}
               </div>
             ) : (
-              <div className="text-gray-500">
-                Not clocked in today
+              <div className="flex items-center text-gray-500">
+                <Clock className="w-4 h-4 mr-2" />
+                <span>Not clocked in today - ready to clock in</span>
               </div>
             )}
           </div>
