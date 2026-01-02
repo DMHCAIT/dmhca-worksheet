@@ -34,10 +34,25 @@ interface BranchSummary {
   totalHours: number
 }
 
+interface Office {
+  id: number
+  name: string
+  latitude: number
+  longitude: number
+  radius_meters: number
+  is_active: boolean
+  work_start_time: string
+  work_end_time: string
+  cycle_type: string
+  cycle_start_day: number
+}
+
 interface AttendanceSummary {
   totalEmployees: number
   presentToday: number
+  onTimeToday: number
   onTimeCount: number
+  validLocation: number
   totalHours: number
   averageHours: number
   branchSummary: BranchSummary[]
@@ -51,7 +66,7 @@ export default function AttendanceReportsPage() {
   const [dateRange, setDateRange] = useState('today') // today, week, month, current_period
 
   // Fetch office locations for branch filtering
-  const { data: offices } = useQuery({
+  const { data: offices } = useQuery<Office[]>({
     queryKey: ['office-locations'],
     queryFn: async () => {
       const token = localStorage.getItem('authToken')
@@ -291,7 +306,7 @@ export default function AttendanceReportsPage() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">All Branches</option>
-                {officeLocations?.map((office) => (
+                {offices?.map((office) => (
                   <option key={office.id} value={office.name}>
                     {office.name} 
                     {office.cycle_type === 'calendar' ? ' (1st-31st)' : ' (26th-25th)'}
@@ -362,7 +377,7 @@ export default function AttendanceReportsPage() {
                   <Clock className="w-4 h-4 mr-1" />
                   Working Hours: 10:00 AM - 7:00 PM
                 </span>
-                {officeLocations?.find(o => o.name === selectedBranch)?.cycle_type === 'calendar' ? (
+                {offices?.find(o => o.name === selectedBranch)?.cycle_type === 'calendar' ? (
                   <span className="flex items-center">
                     <Calendar className="w-4 h-4 mr-1" />
                     Attendance Cycle: 1st to End of Month

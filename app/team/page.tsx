@@ -28,7 +28,13 @@ function TeamContent() {
     phone: '',
     branch_id: null
   })
-  const [editUser, setEditUser] = useState({
+  const [editUser, setEditUser] = useState<{
+    full_name: string
+    role: string
+    department: string
+    phone: string
+    branch_id: number | null
+  }>({
     full_name: '',
     role: 'employee',
     department: '',
@@ -151,7 +157,7 @@ function TeamContent() {
       setPasswordUser(null)
       setNewPassword('')
     } catch (error) {
-      alert(error.message || 'Error changing password')
+      alert((error as Error).message || 'Error changing password')
     }
   }
 
