@@ -19,9 +19,15 @@ export type PollingPriority = keyof typeof POLLING_INTERVALS
  * Hook for managing page visibility state
  */
 export function usePageVisibility() {
-  const [isVisible, setIsVisible] = useState(!document.hidden)
+  const [isVisible, setIsVisible] = useState(() => 
+    typeof document !== 'undefined' ? !document.hidden : true
+  )
 
   useEffect(() => {
+    if (typeof document === 'undefined') {
+      return
+    }
+
     const handleVisibilityChange = () => {
       setIsVisible(!document.hidden)
     }
@@ -98,7 +104,7 @@ export function useAdaptiveQueryOptions(
 ) {
   const isVisible = usePageVisibility()
 
-  const refetchInterval = isVisible ? POLLING_INTERVALS[priority] : (
+  const refetchInterval: number | false = isVisible ? POLLING_INTERVALS[priority] : (
     priority === 'critical' ? POLLING_INTERVALS.background : false
   )
 

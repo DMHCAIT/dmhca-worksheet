@@ -77,7 +77,7 @@ function TeamContent() {
     const depts = new Set(
       users
         .map(u => u.department || u.team)
-        .filter(Boolean)
+        .filter((dept): dept is string => Boolean(dept))
         .filter(d => d !== 'undefined' && d !== 'null')
     )
     return Array.from(depts).sort()
@@ -293,9 +293,9 @@ function TeamContent() {
           onConfirm={handleConfirmDelete}
           title={`Delete ${selectedUser.full_name}`}
           message={`Are you sure you want to delete ${selectedUser.full_name}? This action cannot be undone.`}
-          confirmText="Delete User"
-          cancelText="Cancel"
-          variant="danger"
+          confirmLabel="Delete User"
+          cancelLabel="Cancel"
+          confirmVariant="danger"
         />
       )}
     </DashboardLayout>

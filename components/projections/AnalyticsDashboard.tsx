@@ -125,7 +125,7 @@ const MemoizedChart = memo(({
       <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          {renderChart()}
+          {renderChart() || <div className="flex items-center justify-center h-full text-gray-500">No chart data available</div>}
         </ResponsiveContainer>
       </div>
     </div>

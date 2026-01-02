@@ -191,7 +191,7 @@ export function UserTable({
                     {/* Contact Info */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {formatPhoneNumber(user.phone)}
+                        {formatPhoneNumber(user.phone || null)}
                       </div>
                       {user.branch_name && (
                         <div className="text-xs text-gray-500">
@@ -346,7 +346,7 @@ export function UserTable({
                             <dl className="space-y-1">
                               <div>
                                 <dt className="text-gray-600">Phone:</dt>
-                                <dd>{formatPhoneNumber(user.phone)}</dd>
+                                <dd>{formatPhoneNumber(user.phone || null)}</dd>
                               </div>
                               <div>
                                 <dt className="text-gray-600">Status:</dt>

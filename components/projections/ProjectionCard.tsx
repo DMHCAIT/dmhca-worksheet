@@ -211,13 +211,15 @@ const ProjectionCard = memo(({
   }, [projection.status])
 
   const priorityColor = useMemo(() => {
-    switch (projection.priority) {
+    // Since priority is not in WorkProjection interface, derive it from other fields
+    const priority = (projection as any).priority || 'medium'
+    switch (priority) {
       case 'high': return 'bg-red-100 text-red-800'
       case 'medium': return 'bg-yellow-100 text-yellow-800'
       case 'low': return 'bg-green-100 text-green-800'
       default: return 'bg-gray-100 text-gray-800'
     }
-  }, [projection.priority])
+  }, [projection])
 
   // Memoized callbacks to prevent child re-renders
   const handleToggleSubtasks = useCallback(() => {

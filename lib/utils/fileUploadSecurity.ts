@@ -69,7 +69,7 @@ export function validateFileType(file: File): { isValid: boolean; error?: string
 
   // Find matching MIME type and extension
   const allowedEntry = Object.entries(ALLOWED_FILE_TYPES).find(([mime, extensions]) => {
-    return mime === mimeType && extensions.includes(fileExtension as any)
+    return mime === mimeType && (extensions as readonly string[]).includes(fileExtension)
   })
 
   if (!allowedEntry) {

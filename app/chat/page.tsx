@@ -215,7 +215,11 @@ function ChatContent() {
               filteredUsers.map((userItem) => (
                 <button
                   key={userItem.id}
-                  onClick={() => setSelectedUser(userItem as Conversation)}
+                  onClick={() => setSelectedUser({
+                    ...userItem,
+                    avatar_url: (userItem as any).avatar_url || '',
+                    team: userItem.department || ''
+                  } as Conversation)}
                   className={`w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors border-b ${
                     selectedUser?.id === userItem.id ? 'bg-blue-50' : ''
                   }`}
