@@ -83,7 +83,7 @@ export default function AttendanceReportsPage() {
     record.user_email?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const formatTime = (dateString: string | null) => {
+  const formatTime = (dateString: string | null | undefined) => {
     if (!dateString) return '--'
     return new Date(dateString).toLocaleTimeString('en-US', { 
       hour12: true, 
