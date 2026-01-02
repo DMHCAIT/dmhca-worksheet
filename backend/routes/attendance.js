@@ -123,13 +123,25 @@ router.post('/checkin', authMiddleware, async (req, res) => {
 
     console.log('🎯 Location validation result:', isValidLocation);
 
+    // REJECT clock-in if not within office geofence
+    if (!isValidLocation) {
+      console.log('❌ Clock-in rejected: User is outside office geofence');
+      return res.status(400).json({
+        success: false,
+        error: { 
+          code: 'LOCATION_OUTSIDE_OFFICE', 
+          message: 'You must be within the office premises to clock in' 
+        }
+      });
+    }
+
     const locationData = { lat: latitude, lng: longitude, accuracy };
     const attendanceData = {
       user_id: userId,
       date: today,
       clock_in_time: now,
       clock_in_location: locationData,
-      is_within_office: isValidLocation,
+      is_within_office: true, // Always true now since we reject invalid locations
       updated_at: now
     };
 
@@ -167,10 +179,8 @@ router.post('/checkin', authMiddleware, async (req, res) => {
       success: true,
       data: {
         attendance: result.data,
-        isValidLocation,
-        message: isValidLocation 
-          ? 'Successfully checked in from office location' 
-          : 'Checked in, but location is outside office premises'
+        isValidLocation: true, // Always true since invalid locations are rejected
+        message: 'Successfully checked in from office location'
       }
     };
 
