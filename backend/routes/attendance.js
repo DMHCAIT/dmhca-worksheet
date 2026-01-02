@@ -252,18 +252,21 @@ router.post('/checkout', authMiddleware, async (req, res) => {
       });
     }
 
+    console.log('🎯 Location validation result:', isValidLocation);
+
+    // Note: We allow checkout from any location, but we track if it's valid
+    // This is more flexible than clock-in which must be from office
+
     // Calculate total hours worked
     const checkInTime = new Date(existingAttendance.clock_in_time);
     const checkOutTime = new Date(now);
     const totalHours = ((checkOutTime - checkInTime) / (1000 * 60 * 60)).toFixed(2); // Hours with 2 decimal places
 
-    const locationData = { latitude, longitude, accuracy };
+    const locationData = { lat: latitude, lng: longitude, accuracy };
     const updateData = {
       clock_out_time: now,
       clock_out_location: locationData,
-      is_valid_checkout: isValidLocation,
       total_hours: parseFloat(totalHours),
-      status: 'checked_out',
       updated_at: now
     };
 
