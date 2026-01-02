@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query'
 import { usersApi } from '@/lib/api'
-import { User, CreateUserRequest, UpdateUserRequest } from '@/types'
+import { User, CreateUserForm, UpdateUserRequest } from '@/types/enhanced'
 import toast from 'react-hot-toast'
 
 // Query keys
@@ -38,7 +38,7 @@ export function useCreateUser() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: CreateUserRequest) => usersApi.create(data),
+    mutationFn: (data: CreateUserForm) => usersApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.all })
       toast.success('User created successfully!')

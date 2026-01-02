@@ -88,8 +88,23 @@ export interface Notification {
 export interface Report {
   id: number
   title: string
-  type: string
-  content: any
+  type: 'attendance' | 'performance' | 'project_summary' | 'team_analytics'
+  content: {
+    data: Record<string, unknown>
+    charts?: Array<{
+      type: 'bar' | 'line' | 'pie' | 'table'
+      title: string
+      data: unknown
+    }>
+    summary?: {
+      total_records: number
+      date_range: {
+        start: string
+        end: string
+      }
+      filters_applied: Record<string, unknown>
+    }
+  }
   created_by: string
   created_at: string
   updated_at: string

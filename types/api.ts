@@ -11,7 +11,8 @@ export interface ApiError {
   error: {
     code: string
     message: string
-    details?: any
+    details?: Record<string, unknown>
+    field_errors?: Record<string, string[]>
   }
 }
 

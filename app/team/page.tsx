@@ -4,42 +4,27 @@ import { useState, useMemo, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ProtectedRoute, useAuth } from '@/lib/auth/AuthProvider'
 import { useUsers, useCreateUser, useUpdateUser } from '@/lib/hooks'
-import { TableSkeleton } from '@/components/LoadingSkeleton'
 import { ErrorDisplay } from '@/components/ErrorDisplay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { CreateUserRequest, User } from '@/types'
-import { Edit2, Key } from 'lucide-react'
+import { CreateUserModal } from '@/components/team/CreateUserModal'
+import { UserFiltersBar, UserFilters } from '@/components/team/UserFiltersBar'
+import { UserTable } from '@/components/team/UserTable'
+import { PasswordChangeModal } from '@/components/team/PasswordChangeModal'
+import { ConfirmDialog } from '@/components/ui/Modal'
+import { CreateUserForm, User } from '@/types/enhanced'
 
 function TeamContent() {
   const { user } = useAuth()
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [filterDepartment, setFilterDepartment] = useState<string>('')
   const [showPasswordModal, setShowPasswordModal] = useState(false)
-  const [passwordUser, setPasswordUser] = useState<User | null>(null)
-  const [newPassword, setNewPassword] = useState('')
-  const [offices, setOffices] = useState<any[]>([])
-  const [newUser, setNewUser] = useState<CreateUserRequest>({
-    email: '',
-    password: '',
-    full_name: '',
-    role: 'employee',
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [offices, setOffices] = useState<Array<{ id: number; name: string }>>([])
+  const [filters, setFilters] = useState<UserFilters>({
+    search: '',
+    role: 'all',
     department: '',
-    phone: '',
-    branch_id: null
-  })
-  const [editUser, setEditUser] = useState<{
-    full_name: string
-    role: string
-    department: string
-    phone: string
-    branch_id: number | null
-  }>({
-    full_name: '',
-    role: 'employee',
-    department: '',
-    phone: '',
-    branch_id: null
+    status: 'all'
   })
 
   const { data: users = [], isLoading, error } = useUsers()
@@ -59,7 +44,7 @@ function TeamContent() {
         })
         const data = await response.json()
         if (data.success) {
-          setOffices(data.data)
+          setOffices(data.data || [])
         }
       } catch (error) {
         console.error('Error fetching offices:', error)
@@ -79,85 +64,135 @@ function TeamContent() {
     return Array.from(depts).sort()
   }, [users])
 
-  // Filter users by department
+  // Filter users based on current filters
   const filteredUsers = useMemo(() => {
-    if (!filterDepartment) return users
-    return users.filter(u => {
-      const userDept = u.department || u.team
-      return userDept === filterDepartment
-    })
-  }, [users, filterDepartment])
+    let result = users
 
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    await createUser.mutateAsync(newUser)
-    setShowCreateModal(false)
-    setNewUser({
-      email: '',
-      password: '',
-      full_name: '',
-      role: 'employee',
-      department: '',
-      phone: ''
-    })
+    // Search filter
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase()
+      result = result.filter(user => 
+        user.full_name.toLowerCase().includes(searchLower) ||
+        user.email.toLowerCase().includes(searchLower) ||
+        (user.department && user.department.toLowerCase().includes(searchLower)) ||
+        (user.team && user.team.toLowerCase().includes(searchLower))
+      )
+    }
+
+    // Role filter
+    if (filters.role !== 'all') {
+      result = result.filter(user => user.role === filters.role)
+    }
+
+    // Department filter
+    if (filters.department) {
+      result = result.filter(user => 
+        user.department === filters.department || user.team === filters.department
+      )
+    }
+
+    // Status filter
+    if (filters.status !== 'all') {
+      const isActiveFilter = filters.status === 'active'
+      result = result.filter(user => user.is_active === isActiveFilter)
+    }
+
+    return result
+  }, [users, filters])
+
+  const handleCreateUser = async (formData: CreateUserForm) => {
+    await createUser.mutateAsync(formData)
   }
 
-  const handleEditClick = (member: User) => {
-    setEditingUser(member)
-    setEditUser({
-      full_name: member.full_name,
-      role: member.role,
-      department: member.department || member.team || '',
-      phone: member.phone || '',
-      branch_id: member.branch_id || null
-    })
+  const handleEditUser = (user: User) => {
+    // TODO: Implement edit user modal
+    console.log('Edit user:', user)
   }
 
-  const handleUpdateUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!editingUser) return
+  const handleDeleteUser = (userId: string) => {
+    const user = users.find(u => u.id === userId)
+    if (user) {
+      setSelectedUser(user)
+      setShowDeleteModal(true)
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!selectedUser) return
     
-    await updateUser.mutateAsync({
-      id: editingUser.id,
-      data: {
-        full_name: editUser.full_name,
-        role: editUser.role,
-        department: editUser.department,
-        phone: editUser.phone,
-        branch_id: editUser.branch_id
-      }
-    })
-    setEditingUser(null)
-  }
-
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!passwordUser) return
-
     try {
       const token = localStorage.getItem('authToken')
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${passwordUser.id}/change-password`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${selectedUser.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const data = await response.json()
+      if (!data.success) {
+        throw new Error(data.error?.message || 'Failed to delete user')
+      }
+
+      // Refresh users list
+      window.location.reload() // TODO: Use proper state management
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert((error as Error).message || 'Error deleting user')
+    } finally {
+      setShowDeleteModal(false)
+      setSelectedUser(null)
+    }
+  }
+
+  const handleChangePassword = (userId: string) => {
+    const user = users.find(u => u.id === userId)
+    if (user) {
+      setSelectedUser(user)
+      setShowPasswordModal(true)
+    }
+  }
+
+  const handlePasswordSubmit = async (userId: string, newPassword: string) => {
+    const token = localStorage.getItem('authToken')
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}/change-password`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ newPassword })
+    })
+
+    const data = await response.json()
+    if (!data.success) {
+      throw new Error(data.error?.message || 'Failed to change password')
+    }
+  }
+
+  const handleToggleUserStatus = async (userId: string, isActive: boolean) => {
+    try {
+      const token = localStorage.getItem('authToken')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}/status`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          newPassword
-        })
+        body: JSON.stringify({ is_active: isActive })
       })
 
       const data = await response.json()
       if (!data.success) {
-        throw new Error(data.error?.message || 'Failed to change password')
+        throw new Error(data.error?.message || 'Failed to update user status')
       }
 
-      alert('Password changed successfully!')
-      setShowPasswordModal(false)
-      setPasswordUser(null)
-      setNewPassword('')
+      // Refresh users list
+      window.location.reload() // TODO: Use proper state management
     } catch (error) {
-      alert((error as Error).message || 'Error changing password')
+      console.error('Error toggling user status:', error)
+      alert((error as Error).message || 'Error updating user status')
     }
   }
 
@@ -170,454 +205,79 @@ function TeamContent() {
   return (
     <DashboardLayout>
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
-          <p className="text-gray-600">Manage your team and members</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Team Members</h1>
+          <p className="text-gray-600 mt-1">Manage your team and members</p>
         </div>
         {canManageTeam && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="btn btn-primary"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             disabled={createUser.isPending}
           >
+            <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
             Add Team Member
           </button>
         )}
       </div>
 
-      {/* Department Filter */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex items-center gap-4">
-          <label className="text-sm font-medium text-gray-700">
-            Filter by Department:
-          </label>
-          <select
-            value={filterDepartment}
-            onChange={(e) => setFilterDepartment(e.target.value)}
-            className="input w-64"
-          >
-            <option value="">All Departments</option>
-            {departments.map((dept) => (
-              <option key={dept} value={dept}>
-                {dept}
-              </option>
-            ))}
-          </select>
-          {filterDepartment && (
-            <button
-              onClick={() => setFilterDepartment('')}
-              className="text-sm text-blue-600 hover:text-blue-800 underline"
-            >
-              Clear Filter
-            </button>
-          )}
-          <div className="ml-auto text-sm text-gray-600">
-            Showing {filteredUsers.length} of {users.length} members
-          </div>
-        </div>
-      </div>
+      {/* Filters */}
+      <UserFiltersBar
+        onFilterChange={setFilters}
+        totalUsers={users.length}
+        filteredCount={filteredUsers.length}
+        departments={departments}
+      />
 
-      {/* Team Members Table */}
-      {isLoading ? (
-        <TableSkeleton rows={6} columns={6} />
-      ) : filteredUsers.length === 0 ? (
-        <div className="text-center py-12">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {filterDepartment ? 'No team members found in this department' : 'No team members found'}
-          </h3>
-          <p className="text-gray-500">
-            {filterDepartment ? 'Try selecting a different department.' : 'Add your first team member to get started.'}
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-          <table className="min-w-full divide-y divide-gray-300">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Department
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Joined
-                </th>
-                {canManageTeam && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {filteredUsers.map((member) => (
-                <tr key={member.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{member.full_name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{member.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      member.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                      member.role === 'team_lead' ? 'bg-blue-100 text-blue-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
-                      {member.role.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                    {(member as any).department || member.team || 'Not Assigned'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {member.created_at ? new Date(member.created_at).toLocaleDateString() : 'N/A'}
-                  </td>
-                  {canManageTeam && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEditClick(member)}
-                          className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          Edit
-                        </button>
-                        {user?.role === 'admin' && (
-                          <button
-                            onClick={() => {
-                              setPasswordUser(member)
-                              setShowPasswordModal(true)
-                              setNewPassword('')
-                            }}
-                            className="text-green-600 hover:text-green-800 flex items-center gap-1"
-                          >
-                            <Key className="w-4 h-4" />
-                            Password
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* User Table */}
+      <UserTable
+        users={filteredUsers}
+        isLoading={isLoading}
+        onEditUser={canManageTeam ? handleEditUser : undefined}
+        onDeleteUser={canManageTeam ? handleDeleteUser : undefined}
+        onChangePassword={canManageTeam ? handleChangePassword : undefined}
+        onToggleUserStatus={canManageTeam ? handleToggleUserStatus : undefined}
+      />
+
+      {/* Modals */}
+      <CreateUserModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateUser}
+        offices={offices}
+        isLoading={createUser.isPending}
+      />
+
+      {selectedUser && (
+        <PasswordChangeModal
+          isOpen={showPasswordModal}
+          onClose={() => {
+            setShowPasswordModal(false)
+            setSelectedUser(null)
+          }}
+          onSubmit={handlePasswordSubmit}
+          userId={selectedUser.id}
+          userName={selectedUser.full_name}
+        />
       )}
 
-      {/* Create User Modal */}
-      {showCreateModal && canManageTeam && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-            <h2 className="text-2xl font-bold mb-6">Add Team Member</h2>
-            <form onSubmit={handleCreateUser}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newUser.full_name}
-                    onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
-                    className="input"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={newUser.email}
-                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                    className="input"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    value={newUser.password}
-                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    className="input"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Role *
-                  </label>
-                  <select
-                    required
-                    value={newUser.role}
-                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value as any })}
-                    className="input"
-                    disabled={user?.role !== 'admin'}
-                  >
-                    <option value="employee">Employee</option>
-                    {user?.role === 'admin' && (
-                      <>
-                        <option value="team_lead">Team Lead</option>
-                        <option value="admin">Admin</option>
-                      </>
-                    )}
-                  </select>
-                  {user?.role !== 'admin' && (
-                    <p className="text-xs text-gray-500 mt-1">Only admins can assign admin/team lead roles</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Department
-                  </label>
-                  <select
-                    value={newUser.department}
-                    onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
-                    className="input"
-                  >
-                    <option value="">Select department</option>
-                    <option value="admin">Admin</option>
-                    <option value="digital marketing">Digital Marketing</option>
-                    <option value="sales">Sales</option>
-                    <option value="it">IT</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Branch Office
-                  </label>
-                  <select
-                    value={newUser.branch_id || ''}
-                    onChange={(e) => setNewUser({ ...newUser, branch_id: e.target.value ? parseInt(e.target.value) : null })}
-                    className="input"
-                  >
-                    <option value="">Select branch</option>
-                    {offices.map(office => (
-                      <option key={office.id} value={office.id}>
-                        {office.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={newUser.phone}
-                    onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                    className="input"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="btn btn-secondary flex-1"
-                  disabled={createUser.isPending}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary flex-1"
-                  disabled={createUser.isPending}
-                >
-                  {createUser.isPending ? 'Adding...' : 'Add Member'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit User Modal */}
-      {editingUser && canManageTeam && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-6">Edit Team Member</h2>
-            <form onSubmit={handleUpdateUser}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editUser.full_name}
-                    onChange={(e) => setEditUser({ ...editUser, full_name: e.target.value })}
-                    className="input"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={editingUser.email}
-                    disabled
-                    className="input bg-gray-100 cursor-not-allowed"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Role *
-                  </label>
-                  <select
-                    required
-                    value={editUser.role}
-                    onChange={(e) => setEditUser({ ...editUser, role: e.target.value as any })}
-                    className="input"
-                    disabled={user?.role !== 'admin'}
-                  >
-                    <option value="employee">Employee</option>
-                    {user?.role === 'admin' && (
-                      <>
-                        <option value="team_lead">Team Lead</option>
-                        <option value="admin">Admin</option>
-                      </>
-                    )}
-                  </select>
-                  {user?.role !== 'admin' && (
-                    <p className="text-xs text-gray-500 mt-1">Only admins can change roles</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Department *
-                  </label>
-                  <select
-                    required
-                    value={editUser.department}
-                    onChange={(e) => setEditUser({ ...editUser, department: e.target.value })}
-                    className="input"
-                  >
-                    <option value="">Select department</option>
-                    <option value="Management">Management</option>
-                    <option value="Digital Marketing">Digital Marketing</option>
-                    <option value="Sales">Sales</option>
-                    <option value="IT">IT</option>
-                    <option value="HR">HR</option>
-                    <option value="Finance">Finance</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={editUser.phone}
-                    onChange={(e) => setEditUser({ ...editUser, phone: e.target.value })}
-                    className="input"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setEditingUser(null)}
-                  className="btn btn-secondary flex-1"
-                  disabled={updateUser.isPending}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary flex-1"
-                  disabled={updateUser.isPending}
-                >
-                  {updateUser.isPending ? 'Updating...' : 'Update Member'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Change Password Modal */}
-      {showPasswordModal && passwordUser && user?.role === 'admin' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-            <h2 className="text-2xl font-bold mb-6">Change Password</h2>
-            <p className="text-gray-600 mb-4">
-              Changing password for: <strong>{passwordUser.full_name}</strong>
-            </p>
-            
-            <form onSubmit={handlePasswordChange}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    New Password *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="input"
-                    placeholder="Enter new password"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
-                </div>
-              </div>
-
-              <div className="flex gap-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPasswordModal(false)
-                    setPasswordUser(null)
-                    setNewPassword('')
-                  }}
-                  className="btn btn-secondary flex-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary flex-1"
-                >
-                  Change Password
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {selectedUser && (
+        <ConfirmDialog
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false)
+            setSelectedUser(null)
+          }}
+          onConfirm={handleConfirmDelete}
+          title={`Delete ${selectedUser.full_name}`}
+          message={`Are you sure you want to delete ${selectedUser.full_name}? This action cannot be undone.`}
+          confirmText="Delete User"
+          cancelText="Cancel"
+          variant="danger"
+        />
       )}
     </DashboardLayout>
   )
@@ -632,3 +292,4 @@ export default function TeamPage() {
     </ProtectedRoute>
   )
 }
+
