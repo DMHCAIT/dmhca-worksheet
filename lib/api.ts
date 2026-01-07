@@ -230,7 +230,7 @@ export const tasksApi = {
     return response.data.data || response.data
   },
 
-  addAttachment: async (taskId: string, attachment: { file_name: string; file_url: string; file_size?: number; file_type?: string }) => {
+  addAttachment: async (taskId: string, attachment: { file_name: string; file_url: string; file_size?: number; file_type?: string; uploaded_by?: string }) => {
     const response = await api.post(`/tasks/${taskId}/attachments`, attachment)
     return response.data.data || response.data
   },
