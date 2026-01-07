@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ProtectedRoute } from '@/lib/auth/AuthProvider'
-import { useProjects, useCreateProject } from '@/lib/hooks'
+import { useProjects, useCreateProject, useUpdateProject } from '@/lib/hooks'
 import { TableSkeleton } from '@/components/LoadingSkeleton'
 import { ErrorDisplay } from '@/components/ErrorDisplay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -11,6 +11,8 @@ import { Project, CreateProjectRequest } from '@/types'
 
 function ProjectsContent() {
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [newProject, setNewProject] = useState<CreateProjectRequest>({
     name: '',
     description: '',
@@ -21,6 +23,7 @@ function ProjectsContent() {
 
   const { data: projects = [], isLoading, error, refetch } = useProjects()
   const createProject = useCreateProject()
+  const updateProject = useUpdateProject()
 
   // Calculate stats
   const stats = {
@@ -41,6 +44,30 @@ function ProjectsContent() {
       start_date: new Date().toISOString().split('T')[0],
       end_date: null
     })
+  }
+
+  const handleEditProject = (project: Project) => {
+    setEditingProject(project)
+    setShowEditModal(true)
+  }
+
+  const handleUpdateProject = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingProject) return
+    
+    await updateProject.mutateAsync({
+      id: editingProject.id,
+      data: {
+        name: editingProject.name,
+        description: editingProject.description,
+        status: editingProject.status,
+        start_date: editingProject.start_date,
+        end_date: editingProject.end_date,
+        deadline: editingProject.deadline
+      }
+    })
+    setShowEditModal(false)
+    setEditingProject(null)
   }
 
   if (error) {
@@ -210,7 +237,11 @@ function ProjectsContent() {
                   <button className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                     View Details
                   </button>
-                  <button className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                  <button 
+                    onClick={() => handleEditProject(project)}
+                    className="px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Edit Project"
+                  >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
@@ -311,6 +342,117 @@ function ProjectsContent() {
                   disabled={createProject.isPending}
                 >
                   {createProject.isPending ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Project Modal */}
+      {showEditModal && editingProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <h2 className="text-2xl font-bold mb-6">Edit Project</h2>
+            <form onSubmit={handleUpdateProject}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Project Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingProject.name}
+                    onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
+                    className="input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description *
+                  </label>
+                  <textarea
+                    required
+                    value={editingProject.description}
+                    onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
+                    className="input"
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editingProject.start_date}
+                    onChange={(e) => setEditingProject({ ...editingProject, start_date: e.target.value })}
+                    className="input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editingProject.end_date || ''}
+                    onChange={(e) => setEditingProject({ ...editingProject, end_date: e.target.value || null })}
+                    className="input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Deadline
+                  </label>
+                  <input
+                    type="date"
+                    value={editingProject.deadline || ''}
+                    onChange={(e) => setEditingProject({ ...editingProject, deadline: e.target.value || null })}
+                    className="input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={editingProject.status}
+                    onChange={(e) => setEditingProject({ ...editingProject, status: e.target.value as any })}
+                    className="input"
+                  >
+                    <option value="active">Active</option>
+                    <option value="on_hold">On Hold</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setEditingProject(null)
+                  }}
+                  className="btn btn-secondary flex-1"
+                  disabled={updateProject.isPending}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary flex-1"
+                  disabled={updateProject.isPending}
+                >
+                  {updateProject.isPending ? 'Updating...' : 'Update'}
                 </button>
               </div>
             </form>
