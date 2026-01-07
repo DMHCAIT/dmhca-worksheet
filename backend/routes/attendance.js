@@ -78,12 +78,14 @@ router.get('/status', authMiddleware, async (req, res) => {
     
     console.log('📅 GET /api/attendance/status - User:', req.user.email, 'Date:', today);
     
-    const { data: attendance, error } = await supabase
+    // Get attendance record for today (most recent if multiple exist)
+    const { data: attendanceRecords, error } = await supabase
       .from('attendance_records')
       .select('*')
       .eq('user_id', userId)
       .eq('date', today)
-      .maybeSingle(); // Use maybeSingle to avoid error if no record found
+      .order('clock_in_time', { ascending: false })
+      .limit(1);
 
     if (error) {
       console.error('❌ Error fetching attendance:', error);
@@ -92,6 +94,8 @@ router.get('/status', authMiddleware, async (req, res) => {
         error: { code: 'DATABASE_ERROR', message: error.message } 
       });
     }
+
+    const attendance = attendanceRecords && attendanceRecords.length > 0 ? attendanceRecords[0] : null;
 
     // Get office settings for geofence info
     const { data: offices, error: officeError } = await supabase
@@ -148,13 +152,14 @@ router.post('/checkin', authMiddleware, async (req, res) => {
       });
     }
 
-    // Check if user already checked in today
-    const { data: existingAttendance, error: checkError } = await supabase
+    // Check if user already checked in today (get most recent if multiple exist)
+    const { data: attendanceRecords, error: checkError } = await supabase
       .from('attendance_records')
       .select('*')
       .eq('user_id', userId)
       .eq('date', today)
-      .maybeSingle();
+      .order('clock_in_time', { ascending: false })
+      .limit(1);
 
     if (checkError) {
       console.error('❌ Error checking existing attendance:', checkError);
@@ -163,6 +168,8 @@ router.post('/checkin', authMiddleware, async (req, res) => {
         error: { code: 'DATABASE_ERROR', message: checkError.message } 
       });
     }
+
+    const existingAttendance = attendanceRecords && attendanceRecords.length > 0 ? attendanceRecords[0] : null;
 
     if (existingAttendance && existingAttendance.clock_in_time) {
       return res.status(400).json({
@@ -269,13 +276,16 @@ router.post('/checkout', authMiddleware, async (req, res) => {
       });
     }
 
-    // Check if user has checked in today
-    const { data: existingAttendance, error: checkError } = await supabase
+    // Check if user has checked in today (get most recent if multiple exist)
+    const { data: attendanceRecords, error: checkError } = await supabase
       .from('attendance_records')
       .select('*')
       .eq('user_id', userId)
       .eq('date', today)
-      .maybeSingle();
+      .order('clock_in_time', { ascending: false })
+      .limit(1);
+
+    const existingAttendance = attendanceRecords && attendanceRecords.length > 0 ? attendanceRecords[0] : null;
 
     console.log('🔍 Existing attendance check:', { existingAttendance, error: checkError });
 
@@ -284,6 +294,8 @@ router.post('/checkout', authMiddleware, async (req, res) => {
       return res.status(400).json({
         success: false,
         error: { code: 'DATABASE_ERROR', message: checkError.message }
+      });
+    }
       });
     }
 
@@ -499,11 +511,12 @@ router.get('/admin/daily/:date', authMiddleware, requireRole(['admin']), async (
 // Get/Update office settings (admin only)
 router.get('/office-settings', authMiddleware, async (req, res) => {
   try {
-    const { data: office, error } = await supabase
+    const { data: officeSettings, error } = await supabase
       .from('office_settings')
       .select('*')
       .eq('is_active', true)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
     if (error) {
       console.error('❌ Error fetching office settings:', error);
@@ -512,6 +525,8 @@ router.get('/office-settings', authMiddleware, async (req, res) => {
         error: { code: 'DATABASE_ERROR', message: error.message } 
       });
     }
+
+    const office = officeSettings && officeSettings.length > 0 ? officeSettings[0] : null;
 
     res.json({ 
       success: true, 
