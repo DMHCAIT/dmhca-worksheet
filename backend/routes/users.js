@@ -134,8 +134,15 @@ router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
+    console.log('🔍 GET /api/users/:id - Fetching user:', {
+      userId: id,
+      requesterId: req.user.id,
+      requesterRole: req.user.role
+    });
+
     // Users can only see their own profile, unless they're admin/team_lead
     if (req.user.id !== id && !['admin', 'team_lead'].includes(req.user.role)) {
+      console.log('❌ Access denied - user trying to view another user');
       return res.status(403).json({ 
         success: false,
         error: { code: 'ACCESS_DENIED', message: 'Access denied' } 
@@ -152,18 +159,21 @@ router.get('/:id', authMiddleware, async (req, res) => {
       console.error('❌ Error fetching user by ID:', error);
       return res.status(400).json({ 
         success: false, 
-        error: { code: 'DATABASE_ERROR', message: error.message } 
+        error: { code: 'DATABASE_ERROR', message: error.message, details: error } 
       });
     }
 
     const user = users && users.length > 0 ? users[0] : null;
 
     if (!user) {
+      console.log('❌ User not found');
       return res.status(404).json({ 
         success: false, 
         error: { code: 'NOT_FOUND', message: 'User not found' } 
       });
     }
+
+    console.log('✅ User fetched successfully');
 
     res.json({ 
       success: true, 
@@ -171,6 +181,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
       message: 'User retrieved successfully' 
     });
   } catch (error) {
+    console.error('❌ Server error fetching user:', error);
     res.status(500).json({ 
       success: false, 
       error: { code: 'SERVER_ERROR', message: error.message } 
@@ -184,9 +195,20 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
     const { full_name, department, phone, role, is_active, branch_id } = req.body;
 
+    console.log('📝 PUT /api/users/:id - Update user request:', {
+      userId: id,
+      requesterId: req.user.id,
+      requesterRole: req.user.role,
+      updateFields: { full_name, department, phone, role, is_active, branch_id }
+    });
+
     // Users can only update their own profile, unless they're admin
     if (req.user.id !== id && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Access denied' });
+      console.log('❌ Access denied - user trying to update another user');
+      return res.status(403).json({ 
+        success: false,
+        error: { code: 'ACCESS_DENIED', message: 'Access denied' } 
+      });
     }
 
     const updateData = {};
@@ -208,19 +230,32 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     updateData.updated_at = new Date().toISOString();
 
+    console.log('🔄 Updating user with data:', updateData);
+
     const { data: user, error } = await supabase
       .from('profiles')
       .update(updateData)
       .eq('id', id)
-      .select('id, email, full_name, role, department, phone, is_active, branch_id, avatar_url')
+      .select('id, email, full_name, role, department, team, phone, is_active, branch_id, avatar_url')
       .single();
 
     if (error) {
+      console.error('❌ Database error updating user:', error);
       return res.status(400).json({ 
         success: false, 
-        error: { code: 'DATABASE_ERROR', message: error.message } 
+        error: { code: 'DATABASE_ERROR', message: error.message, details: error } 
       });
     }
+
+    if (!user) {
+      console.log('❌ User not found after update');
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'User not found' }
+      });
+    }
+
+    console.log('✅ User updated successfully:', user);
 
     res.json({ 
       success: true, 
@@ -228,6 +263,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
       message: 'User updated successfully' 
     });
   } catch (error) {
+    console.error('❌ Server error updating user:', error);
     res.status(500).json({ 
       success: false, 
       error: { code: 'SERVER_ERROR', message: error.message } 
