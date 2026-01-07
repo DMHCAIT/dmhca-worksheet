@@ -19,6 +19,9 @@ const workLogsRoutes = require('./routes/work-logs');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy - Required for Render deployment
+app.set('trust proxy', 1);
+
 // CORS configuration - MUST be first, before all other middleware
 const corsOptions = {
   origin: true, // Allow all origins

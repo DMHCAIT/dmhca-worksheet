@@ -70,29 +70,13 @@ router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
       });
     }
 
-    // Validate branch_id if provided
-    if (branch_id) {
-      const { data: branch, error: branchError } = await supabase
-        .from('office_locations')
-        .select('id, name')
-        .eq('id', branch_id)
-        .eq('is_active', true)
-        .single();
-
-      if (branchError || !branch) {
-        return res.status(400).json({ 
-          error: 'Invalid branch selected' 
-        });
-      }
-    }
-
     // Generate a UUID for the new user
     const newUserId = uuidv4();
 
     // Hash the password
     const password_hash = await bcrypt.hash(password, 10);
 
-    // Create profile with hashed password and branch
+    // Create profile with hashed password
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .insert({
@@ -101,13 +85,9 @@ router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
         full_name,
         password_hash,
         role: role || 'employee',
-        department,
-        phone,
         team: department, // Keep team in sync with department for backwards compatibility
-        branch_id,
-        is_active: true
       })
-      .select('id, email, full_name, role, department, phone, branch_id, is_active, created_at')
+      .select('id, email, full_name, role, team, created_at')
       .single();
 
     if (profileError) {
@@ -124,6 +104,49 @@ router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
   } catch (error) {
     res.status(500).json({ 
       success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Get office locations - MUST be before /:id route
+router.get('/office-locations', authMiddleware, async (req, res) => {
+  try {
+    console.log('🏢 GET /api/users/office-locations - Fetching office locations');
+    
+    const { data: offices, error } = await supabase
+      .from('office_locations')
+      .select('id, name, latitude, longitude, is_active, cycle_type, cycle_start_day, work_start_time, work_end_time')
+      .eq('is_active', true)
+      .order('name');
+
+    if (error) {
+      console.error('❌ Database error fetching offices:', error);
+      // Return fallback data instead of error
+      console.log('🔄 Returning fallback office locations due to database error');
+      return res.json({ 
+        success: true,
+        data: [
+          { id: 1, name: 'DMHCA Delhi Branch' },
+          { id: 2, name: 'DMHCA Hyderabad Branch' },
+          { id: 3, name: 'DMHCA Head Office' }
+        ],
+        message: 'Using fallback office locations'
+      });
+    }
+
+    console.log(`✅ Found ${offices?.length || 0} active office locations:`, 
+      offices?.map(o => ({ id: o.id, name: o.name })) || []);
+
+    res.json({ 
+      success: true,
+      data: offices || [],
+      message: 'Office locations retrieved successfully'
+    });
+  } catch (error) {
+    console.error('❌ Server error fetching offices:', error);
+    res.status(500).json({ 
+      success: false,
       error: { code: 'SERVER_ERROR', message: error.message } 
     });
   }
@@ -474,112 +497,6 @@ router.get('/:id/stats', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
-  }
-});
-
-// Get office locations (for branch selection)
-router.get('/office-locations', authMiddleware, async (req, res) => {
-  try {
-    console.log('🏢 GET /api/users/office-locations - Fetching office locations');
-    
-    const { data: offices, error } = await supabase
-      .from('office_locations')
-      .select('id, name, latitude, longitude, is_active, cycle_type, cycle_start_day, work_start_time, work_end_time')
-      .eq('is_active', true)
-      .order('name');
-
-    if (error) {
-      console.error('❌ Database error fetching offices:', error);
-      // Return fallback data instead of error
-      console.log('🔄 Returning fallback office locations due to database error');
-      return res.json({ 
-        success: true,
-        data: [
-          { id: 1, name: 'DMHCA Delhi Branch' },
-          { id: 2, name: 'DMHCA Hyderabad Branch' },
-          { id: 3, name: 'DMHCA Head Office' }
-        ],
-        message: 'Using fallback office locations'
-      });
-    }
-
-    console.log(`✅ Found ${offices?.length || 0} active office locations:`, 
-      offices?.map(o => ({ id: o.id, name: o.name })) || []);
-
-    // If no offices found, ensure default ones are created
-    if (!offices || offices.length === 0) {
-      console.log('⚠️ No office locations found, creating default ones...');
-      
-      const defaultOffices = [
-        { 
-          name: 'DMHCA Delhi Branch', 
-          latitude: 28.492361, 
-          longitude: 77.163533, 
-          radius_meters: 100,
-          is_active: true,
-          cycle_type: 'calendar',
-          cycle_start_day: 1,
-          work_start_time: '10:00:00',
-          work_end_time: '19:00:00'
-        },
-        { 
-          name: 'DMHCA Hyderabad Branch', 
-          latitude: 17.42586, 
-          longitude: 78.44508, 
-          radius_meters: 100,
-          is_active: true,
-          cycle_type: 'custom',
-          cycle_start_day: 26,
-          work_start_time: '10:00:00',
-          work_end_time: '19:00:00'
-        }
-      ];
-
-      const { data: newOffices, error: insertError } = await supabase
-        .from('office_locations')
-        .insert(defaultOffices)
-        .select('id, name, latitude, longitude, is_active, cycle_type, cycle_start_day, work_start_time, work_end_time')
-        .order('name');
-
-      if (insertError) {
-        console.error('❌ Error creating default offices:', insertError);
-        // Return basic data even if insert fails
-        return res.json({ 
-          success: true,
-          data: [
-            { id: 1, name: 'DMHCA Delhi Branch' },
-            { id: 2, name: 'DMHCA Hyderabad Branch' }
-          ],
-          message: 'Using fallback office locations' 
-        });
-      }
-
-      console.log('✅ Created default office locations:', newOffices);
-      return res.json({ 
-        success: true,
-        data: newOffices || [],
-        message: 'Office locations retrieved successfully (created defaults)' 
-      });
-    }
-
-    res.json({ 
-      success: true,
-      data: offices || [],
-      message: 'Office locations retrieved successfully' 
-    });
-  } catch (error) {
-    console.error('❌ Error getting office locations:', error);
-    
-    // Provide fallback data even on server error
-    res.json({ 
-      success: true,
-      data: [
-        { id: 1, name: 'DMHCA Delhi Branch' },
-        { id: 2, name: 'DMHCA Hyderabad Branch' },
-        { id: 3, name: 'DMHCA Head Office' }
-      ],
-      message: 'Using fallback office locations due to server error'
-    });
   }
 });
 
