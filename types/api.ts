@@ -74,6 +74,7 @@ export interface UpdateProjectRequest {
   status?: string
   start_date?: string
   end_date?: string | null
+  deadline?: string | null
 }
 
 // Task API types
