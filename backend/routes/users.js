@@ -11,18 +11,14 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     console.log('👥 GET /api/users - User:', req.user?.email, 'Role:', req.user?.role);
     
-    // Select all user fields including branch info
+    // Select all user fields without join to avoid relationship issues
     // NO TEAM FILTERING - All users can see all users for chat functionality
-    const query = supabase
+    const { data: users, error } = await supabase
       .from('profiles')
-      .select(`
-        id, email, full_name, role, team, department, phone, is_active, avatar_url, created_at, updated_at, branch_id,
-        office_locations:branch_id(id, name)
-      `);
+      .select('id, email, full_name, role, team, department, phone, is_active, avatar_url, created_at, updated_at, branch_id')
+      .order('full_name');
 
     console.log('📋 Showing all users (no team restrictions for chat)');
-
-    const { data: users, error } = await query;
 
     if (error) {
       console.error('❌ Supabase error in users:', error);
