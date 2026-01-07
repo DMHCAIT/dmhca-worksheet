@@ -42,23 +42,27 @@ export default function AttendancePage() {
             'Content-Type': 'application/json',
           },
         })
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }))
+          console.error('❌ Attendance status error:', response.status, errorData)
+          throw new Error(errorData.error?.message || `HTTP ${response.status}`)
+        }
+        
         const data = await response.json()
         if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
           console.log('🔍 Attendance API Response:', data)
         }
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${data.error?.message || 'Failed to fetch attendance status'}`)
-        }
         return data.data
       } catch (error) {
         console.error('❌ API Error:', error)
-        // Instead of returning mock data, throw the error to trigger retry
         throw error
       }
     },
     refetchInterval: 30000, // Refresh every 30 seconds
-    retry: 3, // Retry up to 3 times on failure
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
+    retry: 2, // Reduce retries to prevent spam
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 10000),
+    staleTime: 10000 // Consider data stale after 10 seconds
   })
 
   const attendance = attendanceData?.attendance
@@ -182,7 +186,11 @@ export default function AttendancePage() {
     },
     onSuccess: (data) => {
       toast.success(data.message || 'Clocked in successfully!')
+      // Invalidate both queries to refresh the UI
       queryClient.invalidateQueries({ queryKey: ['attendance-status'] })
+      queryClient.invalidateQueries({ queryKey: ['attendance-history'] })
+      // Force a refetch to ensure UI updates
+      refetch()
     },
     onError: (error: Error) => {
       toast.error(error.message)
@@ -320,6 +328,27 @@ export default function AttendancePage() {
             </a>
           )}
         </div>
+
+        {/* Error Display */}
+        {statusError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <XCircle className="w-5 h-5 text-red-600 mr-2" />
+              <div>
+                <h3 className="font-medium text-red-900">Unable to load attendance data</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  {statusError.message || 'Please check your connection and try again.'}
+                </p>
+                <button
+                  onClick={() => refetch()}
+                  className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Current Status */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

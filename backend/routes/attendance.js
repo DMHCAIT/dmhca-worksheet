@@ -4,6 +4,72 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Helper function to calculate distance between two points using Haversine formula
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // Distance in meters
+}
+
+// Check if user is within any office geofence
+async function isWithinOfficeGeofence(latitude, longitude) {
+  try {
+    // First try using the database function
+    const { data: isValid, error } = await supabase
+      .rpc('is_within_geofence', {
+        user_lat: latitude,
+        user_lon: longitude
+      });
+
+    if (!error && isValid !== null) {
+      return isValid;
+    }
+
+    console.warn('⚠️ Database function not available, using JavaScript fallback');
+    
+    // Fallback: Check manually against all active offices
+    const { data: offices, error: officeError } = await supabase
+      .from('office_locations')
+      .select('*')
+      .eq('is_active', true);
+
+    if (officeError || !offices || offices.length === 0) {
+      console.error('❌ No active offices found');
+      return false;
+    }
+
+    // Check if within range of any office
+    for (const office of offices) {
+      const distance = calculateDistance(
+        latitude, 
+        longitude, 
+        parseFloat(office.latitude), 
+        parseFloat(office.longitude)
+      );
+      
+      console.log(`📍 Distance from ${office.name}: ${distance.toFixed(2)}m (limit: ${office.radius_meters}m)`);
+      
+      if (distance <= office.radius_meters) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch (error) {
+    console.error('❌ Error checking geofence:', error);
+    return false;
+  }
+}
+
 // Get current attendance status for today
 router.get('/status', authMiddleware, async (req, res) => {
   try {
@@ -28,19 +94,19 @@ router.get('/status', authMiddleware, async (req, res) => {
     }
 
     // Get office settings for geofence info
-    const { data: office, error: officeError } = await supabase
+    const { data: offices, error: officeError } = await supabase
       .from('office_locations')
       .select('*')
       .eq('is_active', true)
-      .maybeSingle();
+      .limit(1);
 
     if (officeError) {
       console.error('❌ Error fetching office settings:', officeError);
-      return res.status(400).json({ 
-        success: false,
-        error: { code: 'DATABASE_ERROR', message: officeError.message } 
-      });
+      // Don't fail the whole request if office settings are missing
+      console.warn('⚠️ Office settings not available, continuing without office info');
     }
+
+    const office = offices && offices.length > 0 ? offices[0] : null;
 
     const response = {
       success: true,
@@ -106,20 +172,7 @@ router.post('/checkin', authMiddleware, async (req, res) => {
     }
 
     // Validate location using the database function (checks all active offices)
-    const { data: isValidLocation, error: locationError } = await supabase
-      .rpc('is_within_geofence', {
-        user_lat: latitude,
-        user_lon: longitude
-        // Note: No office_id specified - checks all active offices
-      });
-
-    if (locationError) {
-      console.error('❌ Error validating location:', locationError);
-      return res.status(400).json({ 
-        success: false,
-        error: { code: 'LOCATION_VALIDATION_ERROR', message: locationError.message } 
-      });
-    }
+    const isValidLocation = await isWithinOfficeGeofence(latitude, longitude);
 
     console.log('🎯 Location validation result:', isValidLocation);
 
@@ -259,19 +312,7 @@ router.post('/checkout', authMiddleware, async (req, res) => {
     }
 
     // Validate location (checks all active offices)
-    const { data: isValidLocation, error: locationError } = await supabase
-      .rpc('is_within_geofence', {
-        user_lat: latitude,
-        user_lon: longitude
-      });
-
-    if (locationError) {
-      console.error('❌ Error validating location:', locationError);
-      return res.status(400).json({ 
-        success: false,
-        error: { code: 'LOCATION_VALIDATION_ERROR', message: locationError.message } 
-      });
-    }
+    const isValidLocation = await isWithinOfficeGeofence(latitude, longitude);
 
     console.log('🎯 Location validation result:', isValidLocation);
 
