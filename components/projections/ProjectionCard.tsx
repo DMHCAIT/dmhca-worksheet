@@ -156,7 +156,7 @@ const ProjectionCard = memo(({
   })
 
   const queryClient = useQueryClient()
-  const { data: users = [] } = useUsers()
+  const { data: users = [], isLoading: usersLoading, error: usersError } = useUsers()
 
   // Optimized query options for subtasks
   const subtaskQueryOptions = useAdaptiveQueryOptions('normal', showSubtasks)
@@ -498,12 +498,18 @@ const ProjectionCard = memo(({
                         className="input text-sm"
                         value={newSubtask.assigned_to}
                         onChange={(e) => setNewSubtask({ ...newSubtask, assigned_to: e.target.value })}
+                        disabled={usersLoading}
                       >
-                        <option value="">Select Team Member</option>
+                        <option value="">
+                          {usersLoading ? 'Loading team members...' : usersError ? 'Error loading users' : 'Select Team Member'}
+                        </option>
                         {users.map((user: any) => (
                           <option key={user.id} value={user.id}>{user.full_name}</option>
                         ))}
                       </select>
+                      {usersError && (
+                        <p className="text-xs text-red-600 mt-1">Failed to load team members. Please refresh.</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Estimated Hours *</label>
