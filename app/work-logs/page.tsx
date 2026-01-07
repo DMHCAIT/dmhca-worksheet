@@ -6,11 +6,15 @@ import { ProtectedRoute, useAuth } from '@/lib/auth/AuthProvider'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { DailyWorkLogForm } from '@/components/work-logs/DailyWorkLogForm'
 import { WorkReportViewer } from '@/components/work-logs/WorkReportViewer'
-import { Calendar, FileBarChart } from 'lucide-react'
+import { AdminWorkLogsViewer } from '@/components/work-logs/AdminWorkLogsViewer'
+import { Calendar, FileBarChart, Users } from 'lucide-react'
 
 function WorkLogsContent() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState<'daily' | 'reports'>('daily')
+  const isAdmin = user?.role === 'admin'
+  const [activeTab, setActiveTab] = useState<'daily' | 'reports' | 'admin'>(
+    isAdmin ? 'admin' : 'daily'
+  )
 
   return (
     <DashboardLayout>
@@ -23,6 +27,19 @@ function WorkLogsContent() {
       {/* Tabs */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
         <div className="flex border-b border-gray-200">
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab('admin')}
+              className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
+                activeTab === 'admin'
+                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <Users className="w-5 h-5 inline mr-2" />
+              All Users Work Logs
+            </button>
+          )}
           <button
             onClick={() => setActiveTab('daily')}
             className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
@@ -50,7 +67,9 @@ function WorkLogsContent() {
 
       {/* Content */}
       <div className="min-h-[600px]">
-        {activeTab === 'daily' ? (
+        {activeTab === 'admin' && isAdmin ? (
+          <AdminWorkLogsViewer />
+        ) : activeTab === 'daily' ? (
           <div className="max-w-4xl">
             <DailyWorkLogForm />
             
