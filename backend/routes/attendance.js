@@ -296,8 +296,6 @@ router.post('/checkout', authMiddleware, async (req, res) => {
         error: { code: 'DATABASE_ERROR', message: checkError.message }
       });
     }
-      });
-    }
 
     if (!existingAttendance) {
       console.log('❌ No check-in record found');
