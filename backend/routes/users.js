@@ -36,9 +36,15 @@ router.get('/', authMiddleware, async (req, res) => {
       role: users[0].role 
     } : 'No users');
     
+    // Map team to department for frontend compatibility
+    const mappedUsers = users?.map(user => ({
+      ...user,
+      department: user.team
+    })) || [];
+    
     res.json({ 
       success: true, 
-      data: users || [], 
+      data: mappedUsers, 
       message: 'Users retrieved successfully' 
     });
   } catch (error) {
@@ -96,9 +102,16 @@ router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
     }
 
     console.log('✅ User created successfully:', profile.email);
+    
+    // Map team to department for frontend compatibility
+    const responseUser = {
+      ...profile,
+      department: profile.team
+    };
+    
     res.status(201).json({
       success: true,
-      data: profile,
+      data: responseUser,
       message: 'User created successfully'
     });
   } catch (error) {
@@ -198,9 +211,15 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
     console.log('✅ User fetched successfully');
 
+    // Map team to department for frontend compatibility
+    const responseUser = {
+      ...user,
+      department: user.team
+    };
+
     res.json({ 
       success: true, 
-      data: user, 
+      data: responseUser, 
       message: 'User retrieved successfully' 
     });
   } catch (error) {
@@ -216,13 +235,13 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, department, phone, role, is_active, branch_id } = req.body;
+    const { full_name, department, role } = req.body;
 
     console.log('📝 PUT /api/users/:id - Update user request:', {
       userId: id,
       requesterId: req.user.id,
       requesterRole: req.user.role,
-      updateFields: { full_name, department, phone, role, is_active, branch_id }
+      updateFields: { full_name, department, role }
     });
 
     // Users can only update their own profile, unless they're admin
@@ -236,19 +255,15 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     const updateData = {};
     
-    // Anyone can update their own name and phone
+    // Anyone can update their own name
     if (full_name !== undefined) updateData.full_name = full_name;
-    if (phone !== undefined) updateData.phone = phone;
 
-    // Only admin can change role, department, active status, and branch
+    // Only admin can change role and department/team
     if (req.user.role === 'admin') {
       if (department !== undefined) {
-        updateData.department = department;
-        updateData.team = department; // Keep team in sync for backwards compatibility
+        updateData.team = department; // Map department to team field
       }
       if (role !== undefined) updateData.role = role;
-      if (is_active !== undefined) updateData.is_active = is_active;
-      if (branch_id !== undefined) updateData.branch_id = branch_id;
     }
 
     updateData.updated_at = new Date().toISOString();
@@ -259,7 +274,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
       .from('profiles')
       .update(updateData)
       .eq('id', id)
-      .select('id, email, full_name, role, department, team, phone, is_active, branch_id, avatar_url')
+      .select('id, email, full_name, role, team, avatar_url, created_at, updated_at')
       .single();
 
     if (error) {
@@ -280,9 +295,15 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     console.log('✅ User updated successfully:', user);
 
+    // Map team to department for frontend compatibility
+    const responseUser = {
+      ...user,
+      department: user.team
+    };
+
     res.json({ 
       success: true, 
-      data: user, 
+      data: responseUser, 
       message: 'User updated successfully' 
     });
   } catch (error) {
