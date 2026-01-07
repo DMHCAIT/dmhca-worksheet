@@ -117,9 +117,14 @@ function TasksContent() {
       // Filter by department/team
       if (filterDepartment) {
         const assignedUser = users.find(u => u.id === task.assigned_to)
-        if (!assignedUser) return false
-        const userDept = assignedUser.department || assignedUser.team
-        if (userDept !== filterDepartment) {
+        if (!assignedUser) {
+          console.log('Task has no assigned user:', task.id, task.assigned_to)
+          return false
+        }
+        const userDept = (assignedUser.department || assignedUser.team || '').toLowerCase().trim()
+        const filterDept = filterDepartment.toLowerCase().trim()
+        console.log('Comparing:', { userDept, filterDept, match: userDept === filterDept })
+        if (userDept !== filterDept) {
           return false
         }
       }
@@ -443,16 +448,8 @@ function TasksContent() {
               className="input text-sm"
             >
               <option value="">All Departments</option>
-              <option value="admin">Admin</option>
-              <option value="digital marketing">Digital Marketing</option>
-              <option value="sales">Sales</option>
-              <option value="it">IT</option>
-              {departments.filter(dept => {
-                if (!dept) return false
-                const predefined = ['admin', 'digital marketing', 'sales', 'it']
-                return !predefined.includes(dept.toLowerCase())
-              }).map((dept) => (
-                <option key={dept} value={dept}>
+              {departments.map((dept) => (
+                <option key={dept} value={dept.toLowerCase()}>
                   {dept}
                 </option>
               ))}
