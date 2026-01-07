@@ -16,7 +16,7 @@ router.get('/', authMiddleware, async (req, res) => {
     const query = supabase
       .from('profiles')
       .select(`
-        id, email, full_name, role, team, avatar_url, created_at, updated_at, branch_id,
+        id, email, full_name, role, team, department, phone, is_active, avatar_url, created_at, updated_at, branch_id,
         office_locations:branch_id(id, name)
       `);
 
@@ -55,12 +55,12 @@ router.get('/', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
   try {
     console.log('👤 POST /api/users - Creating new user:', req.body);
-    const { email, full_name, password, role, team, branch_id } = req.body;
+    const { email, full_name, password, role, department, phone, branch_id } = req.body;
 
     // Validate required fields
-    if (!email || !full_name || !password || !team) {
+    if (!email || !full_name || !password || !department) {
       return res.status(400).json({ 
-        error: 'Missing required fields: email, full_name, password, and team are required' 
+        error: 'Missing required fields: email, full_name, password, and department are required' 
       });
     }
 
@@ -102,10 +102,13 @@ router.post('/', authMiddleware, requireRole(['admin']), async (req, res) => {
         full_name,
         password_hash,
         role: role || 'employee',
-        team,
-        branch_id
+        department,
+        phone,
+        team: department, // Keep team in sync with department for backwards compatibility
+        branch_id,
+        is_active: true
       })
-      .select('id, email, full_name, role, team, branch_id, created_at')
+      .select('id, email, full_name, role, department, phone, branch_id, is_active, created_at')
       .single();
 
     if (profileError) {
@@ -167,7 +170,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, team, role } = req.body;
+    const { full_name, department, phone, role, is_active, branch_id } = req.body;
 
     // Users can only update their own profile, unless they're admin
     if (req.user.id !== id && req.user.role !== 'admin') {
@@ -176,20 +179,28 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     const updateData = {};
     
-    // Anyone can update their own name
+    // Anyone can update their own name and phone
     if (full_name !== undefined) updateData.full_name = full_name;
+    if (phone !== undefined) updateData.phone = phone;
 
-    // Only admin can change role and team
+    // Only admin can change role, department, active status, and branch
     if (req.user.role === 'admin') {
-      if (team !== undefined) updateData.team = team;
+      if (department !== undefined) {
+        updateData.department = department;
+        updateData.team = department; // Keep team in sync for backwards compatibility
+      }
       if (role !== undefined) updateData.role = role;
+      if (is_active !== undefined) updateData.is_active = is_active;
+      if (branch_id !== undefined) updateData.branch_id = branch_id;
     }
+
+    updateData.updated_at = new Date().toISOString();
 
     const { data: user, error } = await supabase
       .from('profiles')
       .update(updateData)
       .eq('id', id)
-      .select('id, email, full_name, role, team, avatar_url')
+      .select('id, email, full_name, role, department, phone, is_active, branch_id, avatar_url')
       .single();
 
     if (error) {
