@@ -330,13 +330,51 @@ export function AdminWorkLogsViewer() {
               </div>
             ` : ''}
             ${log.tasks_details && log.tasks_details.length > 0 ? `
-              <div style="background: #eff6ff; padding: 10px; border-radius: 5px; margin-top: 10px;">
-                <strong>Completed Tasks (${log.tasks_details.length}):</strong>
-                <ul style="margin: 5px 0;">
+              <div style="background: #eff6ff; padding: 10px; border-radius: 5px; margin-top: 10px; border-left: 4px solid #3b82f6;">
+                <strong style="color: #1e40af;">Completed Tasks (${log.tasks_details.length}):</strong>
+                <ul style="margin: 5px 0; list-style: none; padding-left: 0;">
                   ${log.tasks_details.map(task => `
-                    <li style="margin: 5px 0;">
-                      ${task.title} - <span style="color: #059669;">${task.status}</span>
-                      ${task.completed_at ? ` (Completed: ${new Date(task.completed_at).toLocaleDateString()})` : ''}
+                    <li style="margin: 8px 0; padding: 8px; background: white; border-radius: 4px; border-left: 3px solid #60a5fa;">
+                      <div style="font-weight: 600; color: #1f2937; margin-bottom: 4px;">${task.title}</div>
+                      ${task.description ? `<div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">${task.description}</div>` : ''}
+                      <div style="font-size: 11px; color: #4b5563;">
+                        <span style="background: ${task.priority === 'urgent' ? '#fee2e2' : task.priority === 'high' ? '#fef3c7' : '#e0e7ff'}; 
+                                     color: ${task.priority === 'urgent' ? '#991b1b' : task.priority === 'high' ? '#92400e' : '#3730a3'}; 
+                                     padding: 2px 6px; border-radius: 3px; text-transform: capitalize;">
+                          ${task.priority}
+                        </span>
+                        <span style="margin: 0 5px;">•</span>
+                        <span style="background: #d1fae5; color: #065f46; padding: 2px 6px; border-radius: 3px; text-transform: capitalize;">
+                          ${task.status}
+                        </span>
+                      </div>
+                      <div style="margin-top: 6px; font-size: 11px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 6px;">
+                        ${task.created_at ? `<div><strong>Assigned:</strong> ${new Date(task.created_at).toLocaleString()}</div>` : ''}
+                        ${task.due_date ? `<div><strong>Due:</strong> ${new Date(task.due_date).toLocaleDateString()}</div>` : ''}
+                        ${task.completed_at ? `<div style="color: #059669;"><strong>✓ Completed:</strong> ${new Date(task.completed_at).toLocaleString()}</div>` : ''}
+                      </div>
+                    </li>
+                  `).join('')}
+                </ul>
+              </div>
+            ` : ''}
+            ${log.subtasks_details && log.subtasks_details.length > 0 ? `
+              <div style="background: #faf5ff; padding: 10px; border-radius: 5px; margin-top: 10px; border-left: 4px solid #a855f7;">
+                <strong style="color: #6b21a8;">Completed Subtasks (${log.subtasks_details.length}):</strong>
+                <ul style="margin: 5px 0; list-style: none; padding-left: 0;">
+                  ${log.subtasks_details.map(subtask => `
+                    <li style="margin: 8px 0; padding: 8px; background: white; border-radius: 4px; border-left: 3px solid #c084fc;">
+                      <div style="font-weight: 600; color: #1f2937; margin-bottom: 4px;">${subtask.title}</div>
+                      ${subtask.description ? `<div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">${subtask.description}</div>` : ''}
+                      <div style="font-size: 11px;">
+                        <span style="background: #d1fae5; color: #065f46; padding: 2px 6px; border-radius: 3px; text-transform: capitalize;">
+                          ${subtask.status}
+                        </span>
+                      </div>
+                      <div style="margin-top: 6px; font-size: 11px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 6px;">
+                        ${subtask.created_at ? `<div><strong>Created:</strong> ${new Date(subtask.created_at).toLocaleString()}</div>` : ''}
+                        ${subtask.completed_at ? `<div style="color: #059669;"><strong>✓ Completed:</strong> ${new Date(subtask.completed_at).toLocaleString()}</div>` : ''}
+                      </div>
                     </li>
                   `).join('')}
                 </ul>
@@ -818,20 +856,64 @@ export function AdminWorkLogsViewer() {
                       
                       {log.tasks_details && log.tasks_details.length > 0 && (
                         <div className="mb-3">
-                          <div className="text-xs font-semibold text-blue-800 mb-2">Tasks ({log.tasks_details.length}):</div>
+                          <div className="text-xs font-semibold text-blue-800 mb-2">Tasks Completed ({log.tasks_details.length}):</div>
                           <div className="space-y-2">
                             {log.tasks_details.map((task, idx) => (
-                              <div key={idx} className="bg-white rounded p-2 text-xs">
-                                <div className="font-medium text-gray-900">{task.title}</div>
-                                <div className="flex gap-3 text-gray-600 mt-1">
-                                  <span className="capitalize">{task.priority}</span>
-                                  <span>•</span>
-                                  <span className="capitalize">{task.status}</span>
+                              <div key={idx} className="bg-white rounded p-3 text-xs border-l-4 border-blue-500 shadow-sm">
+                                <div className="font-semibold text-gray-900 mb-1">{task.title}</div>
+                                {task.description && (
+                                  <div className="text-gray-600 mb-2 text-xs">{task.description}</div>
+                                )}
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <span className="text-gray-500">Priority:</span>
+                                    <span className="ml-1 font-medium capitalize px-2 py-0.5 rounded text-xs"
+                                      style={{
+                                        backgroundColor: task.priority === 'urgent' ? '#fee2e2' : task.priority === 'high' ? '#fef3c7' : '#e0e7ff',
+                                        color: task.priority === 'urgent' ? '#991b1b' : task.priority === 'high' ? '#92400e' : '#3730a3'
+                                      }}>
+                                      {task.priority}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Status:</span>
+                                    <span className="ml-1 font-medium capitalize px-2 py-0.5 rounded text-xs bg-green-100 text-green-800">
+                                      {task.status}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="mt-2 space-y-1 text-xs border-t pt-2">
+                                  {task.created_at && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-gray-500 font-medium">Assigned:</span>
+                                      <span className="text-gray-700">
+                                        {new Date(task.created_at).toLocaleString('en-US', { 
+                                          month: 'short', day: 'numeric', year: 'numeric', 
+                                          hour: '2-digit', minute: '2-digit' 
+                                        })}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {task.due_date && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-gray-500 font-medium">Due Date:</span>
+                                      <span className="text-gray-700">
+                                        {new Date(task.due_date).toLocaleDateString('en-US', { 
+                                          month: 'short', day: 'numeric', year: 'numeric' 
+                                        })}
+                                      </span>
+                                    </div>
+                                  )}
                                   {task.completed_at && (
-                                    <>
-                                      <span>•</span>
-                                      <span>Completed: {new Date(task.completed_at).toLocaleDateString()}</span>
-                                    </>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-green-600 font-medium">✓ Completed:</span>
+                                      <span className="text-green-700 font-medium">
+                                        {new Date(task.completed_at).toLocaleString('en-US', { 
+                                          month: 'short', day: 'numeric', year: 'numeric', 
+                                          hour: '2-digit', minute: '2-digit' 
+                                        })}
+                                      </span>
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -842,18 +924,42 @@ export function AdminWorkLogsViewer() {
 
                       {log.subtasks_details && log.subtasks_details.length > 0 && (
                         <div>
-                          <div className="text-xs font-semibold text-blue-800 mb-2">Subtasks ({log.subtasks_details.length}):</div>
+                          <div className="text-xs font-semibold text-blue-800 mb-2">Subtasks Completed ({log.subtasks_details.length}):</div>
                           <div className="space-y-2">
                             {log.subtasks_details.map((subtask, idx) => (
-                              <div key={idx} className="bg-white rounded p-2 text-xs">
-                                <div className="font-medium text-gray-900">{subtask.title}</div>
-                                <div className="flex gap-3 text-gray-600 mt-1">
-                                  <span className="capitalize">{subtask.status}</span>
+                              <div key={idx} className="bg-white rounded p-3 text-xs border-l-4 border-purple-500 shadow-sm">
+                                <div className="font-semibold text-gray-900 mb-1">{subtask.title}</div>
+                                {subtask.description && (
+                                  <div className="text-gray-600 mb-2 text-xs">{subtask.description}</div>
+                                )}
+                                <div className="mb-2">
+                                  <span className="text-gray-500">Status:</span>
+                                  <span className="ml-1 font-medium capitalize px-2 py-0.5 rounded text-xs bg-green-100 text-green-800">
+                                    {subtask.status}
+                                  </span>
+                                </div>
+                                <div className="space-y-1 text-xs border-t pt-2">
+                                  {subtask.created_at && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-gray-500 font-medium">Created:</span>
+                                      <span className="text-gray-700">
+                                        {new Date(subtask.created_at).toLocaleString('en-US', { 
+                                          month: 'short', day: 'numeric', year: 'numeric', 
+                                          hour: '2-digit', minute: '2-digit' 
+                                        })}
+                                      </span>
+                                    </div>
+                                  )}
                                   {subtask.completed_at && (
-                                    <>
-                                      <span>•</span>
-                                      <span>Completed: {new Date(subtask.completed_at).toLocaleDateString()}</span>
-                                    </>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-green-600 font-medium">✓ Completed:</span>
+                                      <span className="text-green-700 font-medium">
+                                        {new Date(subtask.completed_at).toLocaleString('en-US', { 
+                                          month: 'short', day: 'numeric', year: 'numeric', 
+                                          hour: '2-digit', minute: '2-digit' 
+                                        })}
+                                      </span>
+                                    </div>
                                   )}
                                 </div>
                               </div>

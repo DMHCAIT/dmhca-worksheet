@@ -285,6 +285,7 @@ export function WorkReportViewer() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Work Description</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tasks</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Achievements</th>
                     </tr>
                   </thead>
@@ -295,7 +296,60 @@ export function WorkReportViewer() {
                           {new Date(log.log_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.hours_worked}h</td>
-                        <td className="px-6 py-4 text-sm text-gray-700">{log.work_description}</td>
+                        <td className="px-6 py-4 text-sm text-gray-700 max-w-md">{log.work_description}</td>
+                        <td className="px-6 py-4 text-sm">
+                          {((log.tasks_details && log.tasks_details.length > 0) || (log.subtasks_details && log.subtasks_details.length > 0)) ? (
+                            <div className="space-y-2">
+                              {log.tasks_details && log.tasks_details.length > 0 && (
+                                <div className="text-xs">
+                                  <div className="font-semibold text-blue-700 mb-1">Tasks ({log.tasks_details.length}):</div>
+                                  <div className="space-y-1">
+                                    {log.tasks_details.map((task: any, taskIdx: number) => (
+                                      <div key={taskIdx} className="border-l-2 border-blue-400 pl-2 py-1">
+                                        <div className="font-medium text-gray-900">{task.title}</div>
+                                        <div className="flex gap-2 text-xs text-gray-600 mt-0.5">
+                                          <span className="capitalize">{task.priority}</span>
+                                          <span>•</span>
+                                          <span className="capitalize">{task.status}</span>
+                                        </div>
+                                        {task.completed_at && (
+                                          <div className="text-xs text-green-700 mt-0.5">
+                                            ✓ {new Date(task.completed_at).toLocaleString('en-US', { 
+                                              month: 'short', day: 'numeric', 
+                                              hour: '2-digit', minute: '2-digit' 
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {log.subtasks_details && log.subtasks_details.length > 0 && (
+                                <div className="text-xs">
+                                  <div className="font-semibold text-purple-700 mb-1">Subtasks ({log.subtasks_details.length}):</div>
+                                  <div className="space-y-1">
+                                    {log.subtasks_details.map((subtask: any, subtaskIdx: number) => (
+                                      <div key={subtaskIdx} className="border-l-2 border-purple-400 pl-2 py-1">
+                                        <div className="font-medium text-gray-900">{subtask.title}</div>
+                                        {subtask.completed_at && (
+                                          <div className="text-xs text-green-700 mt-0.5">
+                                            ✓ {new Date(subtask.completed_at).toLocaleString('en-US', { 
+                                              month: 'short', day: 'numeric', 
+                                              hour: '2-digit', minute: '2-digit' 
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-600">{log.achievements || '-'}</td>
                       </tr>
                     ))}
