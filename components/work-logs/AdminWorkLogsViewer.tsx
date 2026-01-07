@@ -70,6 +70,9 @@ export function AdminWorkLogsViewer() {
   const [selectedUser, setSelectedUser] = useState<string>('all')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [showPreview, setShowPreview] = useState(false)
+  const [previewContent, setPreviewContent] = useState<string>('')
+  const [reportType, setReportType] = useState<'daily' | 'weekly' | 'monthly'>('daily')
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
 
@@ -258,6 +261,114 @@ export function AdminWorkLogsViewer() {
     XLSX.writeFile(wb, fileName)
   }
 
+  // Generate HTML preview
+  const generatePreview = () => {
+    if (workLogs.length === 0) {
+      alert('No work logs found')
+      return
+    }
+
+    const logsToExport = workLogs
+    const startDateObj = new Date(startDate)
+    const endDateObj = new Date(endDate)
+    const dateRangeText = startDate === endDate 
+      ? startDateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+      : `${startDateObj.toLocaleDateString()} - ${endDateObj.toLocaleDateString()}`
+
+    const totalHours = logsToExport.reduce((sum, log) => sum + parseFloat(log.hours_worked?.toString() || '0'), 0)
+    const totalTasks = logsToExport.reduce((sum, log) => sum + (log.completed_tasks_count || 0) + (log.completed_subtasks_count || 0), 0)
+
+    let html = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 1200px; margin: 0 auto;">
+        <h1 style="color: #2563eb; text-align: center;">Work Logs Report</h1>
+        <p style="text-align: center; color: #666; font-size: 14px;">${dateRangeText}</p>
+        
+        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin: 0 0 10px 0;">Summary</h3>
+          <p>Total Employees: <strong>${logsToExport.length}</strong></p>
+          <p>Total Hours Worked: <strong>${totalHours.toFixed(1)}h</strong></p>
+          <p>Total Tasks Completed: <strong>${totalTasks}</strong></p>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <thead>
+            <tr style="background: #2563eb; color: white;">
+              <th style="padding: 10px; text-align: left;">Employee</th>
+              <th style="padding: 10px; text-align: left;">Department</th>
+              <th style="padding: 10px; text-align: left;">Date</th>
+              <th style="padding: 10px; text-align: left;">Hours</th>
+              <th style="padding: 10px; text-align: left;">Tasks</th>
+            </tr>
+          </thead>
+          <tbody>
+    `
+
+    logsToExport.forEach((log, index) => {
+      const bgColor = index % 2 === 0 ? '#ffffff' : '#f9fafb'
+      const tasksText = Array.isArray(log.tasks_completed) 
+        ? log.tasks_completed.join(', ') 
+        : (log.tasks_completed || 'N/A')
+      
+      html += `
+        <tr style="background: ${bgColor}; border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 10px;">${log.user?.full_name || 'Unknown'}</td>
+          <td style="padding: 10px;">${log.user?.department || log.user?.team || 'N/A'}</td>
+          <td style="padding: 10px;">${new Date(log.log_date).toLocaleDateString()}</td>
+          <td style="padding: 10px;">${log.hours_worked || 0}h</td>
+          <td style="padding: 10px;">${(log.completed_tasks_count || 0) + (log.completed_subtasks_count || 0)} items</td>
+        </tr>
+        <tr style="background: ${bgColor};">
+          <td colspan="5" style="padding: 10px 10px 20px 30px;">
+            <div style="margin-bottom: 10px;">
+              <strong>Work Description:</strong><br/>
+              ${log.work_description || 'N/A'}
+            </div>
+            ${tasksText !== 'N/A' ? `
+              <div style="margin-bottom: 10px;">
+                <strong>Tasks:</strong><br/>
+                ${tasksText}
+              </div>
+            ` : ''}
+            ${log.tasks_details && log.tasks_details.length > 0 ? `
+              <div style="background: #eff6ff; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                <strong>Completed Tasks (${log.tasks_details.length}):</strong>
+                <ul style="margin: 5px 0;">
+                  ${log.tasks_details.map(task => `
+                    <li style="margin: 5px 0;">
+                      ${task.title} - <span style="color: #059669;">${task.status}</span>
+                      ${task.completed_at ? ` (Completed: ${new Date(task.completed_at).toLocaleDateString()})` : ''}
+                    </li>
+                  `).join('')}
+                </ul>
+              </div>
+            ` : ''}
+            ${log.achievements ? `
+              <div style="margin-top: 10px;">
+                <strong>Achievements:</strong><br/>
+                ${log.achievements}
+              </div>
+            ` : ''}
+            ${log.challenges ? `
+              <div style="margin-top: 10px;">
+                <strong>Challenges:</strong><br/>
+                ${log.challenges}
+              </div>
+            ` : ''}
+          </td>
+        </tr>
+      `
+    })
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `
+
+    setPreviewContent(html)
+    setShowPreview(true)
+  }
+
   // Download PDF report for all users
   const downloadDayReport = () => {
     if (workLogs.length === 0) {
@@ -296,13 +407,18 @@ export function AdminWorkLogsViewer() {
     doc.text(`Total Tasks Completed: ${totalTasks}`, 14, 52)
     
     // Work logs table
-    const tableData = logsToExport.map(log => [
-      log.user?.full_name || 'Unknown',
-      log.user?.department || log.user?.team || 'N/A',
-      `${log.hours_worked || 0}h`,
-      (log.work_description || '').substring(0, 40) + ((log.work_description?.length || 0) > 40 ? '...' : ''),
-      (log.tasks_completed || '').substring(0, 30) + ((log.tasks_completed?.length || 0) > 30 ? '...' : '')
-    ])
+    const tableData = logsToExport.map(log => {
+      const tasksText = Array.isArray(log.tasks_completed) 
+        ? log.tasks_completed.join(', ') 
+        : (log.tasks_completed || '')
+      return [
+        log.user?.full_name || 'Unknown',
+        log.user?.department || log.user?.team || 'N/A',
+        `${log.hours_worked || 0}h`,
+        (log.work_description || '').substring(0, 40) + ((log.work_description?.length || 0) > 40 ? '...' : ''),
+        tasksText.substring(0, 30) + (tasksText.length > 30 ? '...' : '')
+      ]
+    })
 
     ;(doc as any).autoTable({
       startY: 58,
@@ -349,7 +465,10 @@ export function AdminWorkLogsViewer() {
         doc.setFontSize(12)
         doc.text('Tasks Completed:', 14, yPos)
         doc.setFontSize(10)
-        const taskLines = doc.splitTextToSize(log.tasks_completed, pageWidth - 28)
+        const tasksText = Array.isArray(log.tasks_completed) 
+          ? log.tasks_completed.join(', ') 
+          : log.tasks_completed
+        const taskLines = doc.splitTextToSize(tasksText, pageWidth - 28)
         doc.text(taskLines, 14, yPos + 8)
         yPos += 8 + (taskLines.length * 5) + 10
       }
@@ -390,6 +509,78 @@ export function AdminWorkLogsViewer() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* Quick Report Buttons */}
+        <div className="mb-4 flex flex-wrap gap-2">
+          <button
+            onClick={() => {
+              const today = new Date()
+              const todayStr = today.toISOString().split('T')[0]
+              setStartDate(todayStr)
+              setEndDate(todayStr)
+              setReportType('daily')
+            }}
+            className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-medium"
+          >
+            📅 Today
+          </button>
+          <button
+            onClick={() => {
+              const today = new Date()
+              const monday = new Date(today)
+              monday.setDate(today.getDate() - today.getDay() + 1)
+              const saturday = new Date(monday)
+              saturday.setDate(monday.getDate() + 5)
+              setStartDate(monday.toISOString().split('T')[0])
+              setEndDate(saturday.toISOString().split('T')[0])
+              setReportType('weekly')
+            }}
+            className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-sm font-medium"
+          >
+            📊 This Week (Mon-Sat)
+          </button>
+          <button
+            onClick={() => {
+              const today = new Date()
+              const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+              const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+              setStartDate(firstDay.toISOString().split('T')[0])
+              setEndDate(lastDay.toISOString().split('T')[0])
+              setReportType('monthly')
+            }}
+            className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 text-sm font-medium"
+          >
+            📈 This Month
+          </button>
+          <button
+            onClick={() => {
+              const today = new Date()
+              const lastWeekStart = new Date(today)
+              lastWeekStart.setDate(today.getDate() - today.getDay() - 6)
+              const lastWeekEnd = new Date(lastWeekStart)
+              lastWeekEnd.setDate(lastWeekStart.getDate() + 5)
+              setStartDate(lastWeekStart.toISOString().split('T')[0])
+              setEndDate(lastWeekEnd.toISOString().split('T')[0])
+              setReportType('weekly')
+            }}
+            className="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 text-sm font-medium"
+          >
+            ⏮️ Last Week
+          </button>
+          <button
+            onClick={() => {
+              const today = new Date()
+              const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+              const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
+              setStartDate(lastMonth.toISOString().split('T')[0])
+              setEndDate(lastMonthEnd.toISOString().split('T')[0])
+              setReportType('monthly')
+            }}
+            className="px-4 py-2 bg-pink-100 text-pink-700 rounded-lg hover:bg-pink-200 text-sm font-medium"
+          >
+            ⏮️ Last Month
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Start Date */}
           <div>
@@ -480,8 +671,22 @@ export function AdminWorkLogsViewer() {
           <div className="text-sm text-gray-600">
             <span className="font-medium">Viewing:</span> {filteredWorkLogs.length} of {workLogs.length} logs
             {startDate === endDate ? ' (1 day)' : ` (${Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1} days)`}
+            <span className="ml-3 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+              {reportType === 'daily' ? '📅 Daily' : reportType === 'weekly' ? '📊 Weekly' : '📈 Monthly'} Report
+            </span>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
+            <button
+              onClick={generatePreview}
+              disabled={workLogs.length === 0}
+              className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed bg-indigo-600 hover:bg-indigo-700"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              Preview Report
+            </button>
             <button
               onClick={downloadExcelReport}
               disabled={workLogs.length === 0}
@@ -489,7 +694,7 @@ export function AdminWorkLogsViewer() {
               title="Downloads ALL users' data (ignores filters)"
             >
               <FileSpreadsheet className="w-4 h-4" />
-              Excel: All Users ({workLogs.length})
+              Excel ({workLogs.length})
             </button>
             <button
               onClick={downloadDayReport}
@@ -498,7 +703,7 @@ export function AdminWorkLogsViewer() {
               title="Downloads ALL users' data (ignores filters)"
             >
               <Download className="w-4 h-4" />
-              PDF: All Users ({workLogs.length})
+              PDF ({workLogs.length})
             </button>
           </div>
         </div>
@@ -713,6 +918,72 @@ export function AdminWorkLogsViewer() {
           </li>
         </ul>
       </div>
+
+      {/* Preview Modal */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            {/* Overlay */}
+            <div 
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+              onClick={() => setShowPreview(false)}
+            ></div>
+
+            {/* Modal */}
+            <div className="relative inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-gray-900">Report Preview</h3>
+                  <button
+                    onClick={() => setShowPreview(false)}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                {/* Preview Content */}
+                <div 
+                  className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4 bg-gray-50"
+                  dangerouslySetInnerHTML={{ __html: previewContent }}
+                />
+              </div>
+
+              {/* Modal Footer */}
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-3">
+                <button
+                  onClick={() => {
+                    downloadDayReport()
+                    setShowPreview(false)
+                  }}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download PDF
+                </button>
+                <button
+                  onClick={() => {
+                    downloadExcelReport()
+                    setShowPreview(false)
+                  }}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  Download Excel
+                </button>
+                <button
+                  onClick={() => setShowPreview(false)}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
