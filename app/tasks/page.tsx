@@ -12,7 +12,7 @@ import { tasksApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { uploadTaskFile, deleteTaskFile } from '@/lib/supabase/client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import FileUpload from '@/components/ui/FileUpload'
+import { FileUpload } from '@/components/ui/FileUpload'
 
 interface ProjectionSubtask {
   id: number
@@ -1007,8 +1007,7 @@ function TasksContent() {
                     Attachments
                   </label>
                   <FileUpload
-                    files={createTaskFiles}
-                    onChange={setCreateTaskFiles}
+                    onFilesChange={setCreateTaskFiles}
                     maxFiles={5}
                   />
                 </div>
