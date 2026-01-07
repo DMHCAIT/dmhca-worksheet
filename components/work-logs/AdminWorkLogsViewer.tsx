@@ -58,7 +58,12 @@ interface WorkLog {
 }
 
 export function AdminWorkLogsViewer() {
-  const [selectedDate, setSelectedDate] = useState(() => {
+  const [startDate, setStartDate] = useState(() => {
+    const today = new Date()
+    today.setDate(today.getDate() - 7) // Default to last 7 days
+    return today.toISOString().split('T')[0]
+  })
+  const [endDate, setEndDate] = useState(() => {
     const today = new Date()
     return today.toISOString().split('T')[0]
   })
@@ -87,9 +92,9 @@ export function AdminWorkLogsViewer() {
 
   // Fetch work logs for date range with task details
   const { data: workLogs = [], isLoading, refetch } = useQuery<WorkLog[]>({
-    queryKey: ['admin-work-logs-with-tasks', selectedDate, selectedUser],
+    queryKey: ['admin-work-logs-with-tasks', startDate, endDate, selectedUser],
     queryFn: async () => {
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/work-logs/range-with-tasks?start_date=${selectedDate}&end_date=${selectedDate}${selectedUser !== 'all' ? `&user_id=${selectedUser}` : ''}`
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/work-logs/range-with-tasks?start_date=${startDate}&end_date=${endDate}${selectedUser !== 'all' ? `&user_id=${selectedUser}` : ''}`
       
       const response = await fetch(url, {
         headers: {
@@ -102,7 +107,7 @@ export function AdminWorkLogsViewer() {
       const result = await response.json()
       return result.data || []
     },
-    enabled: !!token && !!selectedDate
+    enabled: !!token && !!startDate && !!endDate
   })
 
   // Get unique departments
@@ -140,18 +145,21 @@ export function AdminWorkLogsViewer() {
     })
   }, [workLogs, selectedDepartment, searchQuery])
 
-  // Download comprehensive Excel report with task details
+  // Download comprehensive Excel report with task details for ALL users
   const downloadExcelReport = () => {
-    if (filteredWorkLogs.length === 0) {
-      alert('No work logs found for this date')
+    if (workLogs.length === 0) {
+      alert('No work logs found for this date range')
       return
     }
+
+    // Use ALL work logs, not filtered
+    const logsToExport = workLogs
 
     // Create workbook
     const wb = XLSX.utils.book_new()
 
     // Sheet 1: Summary
-    const summaryData = filteredWorkLogs.map(log => ({
+    const summaryData = logsToExport.map(log => ({
       'Employee': log.user?.full_name || 'Unknown',
       'Department': log.user?.department || log.user?.team || 'N/A',
       'Email': log.user?.email || 'N/A',
@@ -166,7 +174,7 @@ export function AdminWorkLogsViewer() {
     XLSX.utils.book_append_sheet(wb, ws1, 'Summary')
 
     // Sheet 2: Detailed Work Logs
-    const detailedData = filteredWorkLogs.map(log => ({
+    const detailedData = logsToExport.map(log => ({
       'Employee': log.user?.full_name || 'Unknown',
       'Department': log.user?.department || log.user?.team || 'N/A',
       'Date': new Date(log.log_date).toLocaleDateString(),
@@ -182,7 +190,7 @@ export function AdminWorkLogsViewer() {
 
     // Sheet 3: Task Details
     const taskDetailsData: any[] = []
-    filteredWorkLogs.forEach(log => {
+    logsToExport.forEach(log => {
       // Add completed tasks
       log.tasks_details?.forEach(task => {
         taskDetailsData.push({
@@ -224,7 +232,7 @@ export function AdminWorkLogsViewer() {
     }
 
     // Sheet 4: Employee Performance
-    const performanceData = filteredWorkLogs.map(log => ({
+    const performanceData = logsToExport.map(log => ({
       'Employee': log.user?.full_name || 'Unknown',
       'Department': log.user?.department || log.user?.team || 'N/A',
       'Date': new Date(log.log_date).toLocaleDateString(),
@@ -244,16 +252,21 @@ export function AdminWorkLogsViewer() {
     XLSX.utils.book_append_sheet(wb, ws4, 'Performance Metrics')
 
     // Download the file
-    const dateStr = new Date(selectedDate).toISOString().split('T')[0]
-    XLSX.writeFile(wb, `work-logs-detailed-${dateStr}.xlsx`)
+    const fileName = startDate === endDate 
+      ? `work-logs-${startDate}.xlsx`
+      : `work-logs-${startDate}_to_${endDate}.xlsx`
+    XLSX.writeFile(wb, fileName)
   }
 
-  // Download day-wise report for all users (PDF)
+  // Download PDF report for all users
   const downloadDayReport = () => {
-    if (filteredWorkLogs.length === 0) {
-      alert('No work logs found for this date')
+    if (workLogs.length === 0) {
+      alert('No work logs found for this date range')
       return
     }
+
+    // Use ALL work logs
+    const logsToExport = workLogs
 
     const doc = new jsPDF()
     const pageWidth = doc.internal.pageSize.width
@@ -261,27 +274,29 @@ export function AdminWorkLogsViewer() {
     // Header
     doc.setFontSize(20)
     doc.setTextColor(37, 99, 235)
-    doc.text('Daily Work Logs Report', pageWidth / 2, 20, { align: 'center' })
+    doc.text('Work Logs Report', pageWidth / 2, 20, { align: 'center' })
     
-    // Date
+    // Date Range
     doc.setFontSize(12)
     doc.setTextColor(100)
-    const dateObj = new Date(selectedDate)
-    doc.text(`Date: ${dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth / 2, 28, { align: 'center' })
+    const startDateObj = new Date(startDate)
+    const endDateObj = new Date(endDate)
+    const dateRangeText = startDate === endDate 
+      ? `Date: ${startDateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
+      : `Period: ${startDateObj.toLocaleDateString()} - ${endDateObj.toLocaleDateString()}`
+    doc.text(dateRangeText, pageWidth / 2, 28, { align: 'center' })
     
     // Summary
     doc.setFontSize(10)
     doc.setTextColor(0)
-    doc.text(`Total Employees Logged: ${filteredWorkLogs.length}`, 14, 40)
-    const totalHours = filteredWorkLogs.reduce((sum, log) => sum + parseFloat(log.hours_worked?.toString() || '0'), 0)
+    doc.text(`Total Employees: ${logsToExport.length}`, 14, 40)
+    const totalHours = logsToExport.reduce((sum, log) => sum + parseFloat(log.hours_worked?.toString() || '0'), 0)
     doc.text(`Total Hours Worked: ${totalHours.toFixed(1)}h`, 14, 46)
-    
-    if (selectedDepartment !== 'all') {
-      doc.text(`Department: ${selectedDepartment}`, 14, 52)
-    }
+    const totalTasks = logsToExport.reduce((sum, log) => sum + (log.completed_tasks_count || 0) + (log.completed_subtasks_count || 0), 0)
+    doc.text(`Total Tasks Completed: ${totalTasks}`, 14, 52)
     
     // Work logs table
-    const tableData = filteredWorkLogs.map(log => [
+    const tableData = logsToExport.map(log => [
       log.user?.full_name || 'Unknown',
       log.user?.department || log.user?.team || 'N/A',
       `${log.hours_worked || 0}h`,
@@ -290,7 +305,7 @@ export function AdminWorkLogsViewer() {
     ])
 
     ;(doc as any).autoTable({
-      startY: selectedDepartment !== 'all' ? 58 : 52,
+      startY: 58,
       head: [['Employee', 'Department', 'Hours', 'Work Description', 'Tasks Completed']],
       body: tableData,
       theme: 'grid',
@@ -306,7 +321,7 @@ export function AdminWorkLogsViewer() {
     })
 
     // Detailed logs on new pages
-    filteredWorkLogs.forEach((log, index) => {
+    logsToExport.forEach((log, index) => {
       if (index > 0) doc.addPage()
       
       doc.setFontSize(16)
@@ -359,7 +374,10 @@ export function AdminWorkLogsViewer() {
       }
     })
 
-    doc.save(`work-logs-${selectedDate}.pdf`)
+    const fileName = startDate === endDate 
+      ? `work-logs-${startDate}.pdf`
+      : `work-logs-${startDate}_to_${endDate}.pdf`
+    doc.save(fileName)
   }
 
   return (
@@ -367,22 +385,36 @@ export function AdminWorkLogsViewer() {
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 text-white">
         <h2 className="text-2xl font-bold mb-2">All Users Work Logs</h2>
-        <p className="text-blue-100">View and download day-wise reports for all employees</p>
+        <p className="text-blue-100">View and download custom range reports for all employees</p>
       </div>
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Date Picker */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Start Date */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Calendar className="w-4 h-4 inline mr-1" />
-              Select Date
+              Start Date
             </label>
             <input
               type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* End Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Calendar className="w-4 h-4 inline mr-1" />
+              End Date
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -444,23 +476,31 @@ export function AdminWorkLogsViewer() {
         </div>
 
         {/* Download Buttons */}
-        <div className="mt-4 flex justify-end gap-3">
-          <button
-            onClick={downloadExcelReport}
-            disabled={filteredWorkLogs.length === 0}
-            className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed bg-green-600 hover:bg-green-700"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            Download Excel Report ({filteredWorkLogs.length} logs)
-          </button>
-          <button
-            onClick={downloadDayReport}
-            disabled={filteredWorkLogs.length === 0}
-            className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download className="w-4 h-4" />
-            Download PDF Report
-          </button>
+        <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="text-sm text-gray-600">
+            <span className="font-medium">Viewing:</span> {filteredWorkLogs.length} of {workLogs.length} logs
+            {startDate === endDate ? ' (1 day)' : ` (${Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1} days)`}
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={downloadExcelReport}
+              disabled={workLogs.length === 0}
+              className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed bg-green-600 hover:bg-green-700"
+              title="Downloads ALL users' data (ignores filters)"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Excel: All Users ({workLogs.length})
+            </button>
+            <button
+              onClick={downloadDayReport}
+              disabled={workLogs.length === 0}
+              className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Downloads ALL users' data (ignores filters)"
+            >
+              <Download className="w-4 h-4" />
+              PDF: All Users ({workLogs.length})
+            </button>
+          </div>
         </div>
       </div>
 
@@ -500,7 +540,10 @@ export function AdminWorkLogsViewer() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
-            Work Logs for {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            {startDate === endDate 
+              ? `Work Logs for ${new Date(startDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`
+              : `Work Logs from ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`
+            }
           </h3>
         </div>
 
@@ -514,7 +557,12 @@ export function AdminWorkLogsViewer() {
             <div className="p-12 text-center text-gray-500">
               <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-300" />
               <p className="text-lg font-medium mb-2">No work logs found</p>
-              <p className="text-sm">Try selecting a different date or adjusting filters</p>
+              <p className="text-sm">Try selecting a different date range or adjusting filters</p>
+              {workLogs.length > 0 && (
+                <p className="text-xs text-blue-600 mt-2">
+                  ({workLogs.length} logs available - adjust filters to view)
+                </p>
+              )}
             </div>
           ) : (
             filteredWorkLogs.map((log) => (
@@ -530,6 +578,8 @@ export function AdminWorkLogsViewer() {
                       <span>{log.user?.email}</span>
                       <span>•</span>
                       <span className="font-medium text-blue-600">{log.hours_worked || 0} hours</span>
+                      <span>•</span>
+                      <span className="text-gray-500">{new Date(log.log_date).toLocaleDateString()}</span>
                     </div>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -639,15 +689,19 @@ export function AdminWorkLogsViewer() {
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span>Filter by date, user, department, or search by keywords</span>
+            <span>Select custom date ranges to analyze work logs over any period</span>
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span>Download comprehensive Excel reports with task completion details, timelines, and performance metrics</span>
+            <span>Filter by date, user, department, or search by keywords (filters don't affect downloads)</span>
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span>Download PDF reports for quick overview and sharing</span>
+            <span>Download comprehensive Excel reports with task completion details for ALL users</span>
+          </li>
+          <li className="flex items-start">
+            <span className="mr-2">•</span>
+            <span>Download PDF reports for quick overview and sharing - always includes all users</span>
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
