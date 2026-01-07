@@ -16,11 +16,12 @@ const authMiddleware = async (req, res, next) => {
     // Get user from database
     const { data: user, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name, role, team')
+      .select('id, email, full_name, role, team, department')
       .eq('id', decoded.userId)
       .single();
 
     if (error || !user) {
+      console.error('❌ User lookup failed:', error);
       return res.status(401).json({ error: 'Invalid token or user not found.' });
     }
 

@@ -188,6 +188,26 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
+// Get current user profile (alias for /me)
+router.get('/profile', authMiddleware, async (req, res) => {
+  try {
+    res.json({
+      message: 'User data retrieved successfully',
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        full_name: req.user.full_name,
+        role: req.user.role,
+        team: req.user.team,
+        department: req.user.department
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get profile error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Refresh token
 router.post('/refresh', authMiddleware, async (req, res) => {
   try {

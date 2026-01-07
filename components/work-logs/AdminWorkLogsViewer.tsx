@@ -410,7 +410,7 @@ export function AdminWorkLogsViewer() {
     const tableData = logsToExport.map(log => {
       const tasksText = Array.isArray(log.tasks_completed) 
         ? log.tasks_completed.join(', ') 
-        : (log.tasks_completed || '')
+        : String(log.tasks_completed || '')
       return [
         log.user?.full_name || 'Unknown',
         log.user?.department || log.user?.team || 'N/A',
