@@ -92,7 +92,7 @@ function TasksContent() {
     const depts = new Set(
       users
         .map(u => u.department || u.team) // Use team as fallback
-        .filter(Boolean) // Remove null/undefined/empty
+        .filter((d): d is string => Boolean(d)) // Remove null/undefined/empty with type guard
         .filter(d => d !== 'undefined' && d !== 'null') // Remove string literals
     )
     const deptArray = Array.from(depts).sort()
