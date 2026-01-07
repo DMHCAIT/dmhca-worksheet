@@ -163,19 +163,39 @@ function TasksContent() {
     })
   }, [tasks, users, filterDepartment, filterAssignee, filterStatus, filterDateFrom, filterDateTo])
 
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault()
-    await createTask.mutateAsync(newTask)
-    setShowCreateModal(false)
-    setNewTask({ 
-      title: '', 
-      description: '', 
-      status: 'pending',
-      priority: 'medium',
-      project_id: null,
-      assigned_to: '',
-      deadline: null
-    })
+  const handleCreateTask = async (taskData: CreateTaskRequest, files: File[]) => {
+    try {
+      // Create the task first
+      const result = await createTask.mutateAsync(taskData)
+      const createdTask = result as any
+      
+      // Upload files if any
+      if (files.length > 0 && createdTask?.id) {
+        setUploadingFile(true)
+        for (const file of files) {
+          try {
+            const { url } = await uploadTaskFile(file, createdTask.id)
+            await tasksApi.addAttachment(createdTask.id.toString(), {
+              file_name: file.name,
+              file_url: url,
+              file_size: file.size,
+              uploaded_by: user?.id || ''
+            })
+          } catch (error) {
+            console.error('Error uploading file:', error)
+            toast.error(`Failed to upload ${file.name}`)
+          }
+        }
+        setUploadingFile(false)
+      }
+      
+      setShowCreateModal(false)
+      toast.success('Task created successfully!')
+      refetch()
+    } catch (error) {
+      console.error('Error creating task:', error)
+      toast.error('Failed to create task')
+    }
   }
 
   const handleViewTask = async (task: Task) => {

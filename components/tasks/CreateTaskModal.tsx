@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/ui/Modal'
 import { CreateTaskForm, Project, User, TaskPriority, TaskStatus } from '@/types/enhanced'
 import { SelectOption } from '@/types/enhanced'
+import { FileUpload } from '@/components/ui/FileUpload'
 
 interface CreateTaskModalProps {
   isOpen: boolean
   onClose: () => void
-  onSubmit: (data: CreateTaskForm) => Promise<void>
+  onSubmit: (data: CreateTaskForm, files: File[]) => Promise<void>
   projects: Project[]
   users: User[]
   isLoading?: boolean
@@ -44,6 +45,7 @@ export function CreateTaskModal({
     deadline: null,
     estimated_hours: undefined,
   })
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
 
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -94,7 +96,7 @@ export function CreateTaskModal({
     }
 
     try {
-      await onSubmit(formData)
+      await onSubmit(formData, selectedFiles)
       // Reset form on success
       setFormData({
         title: '',
@@ -106,6 +108,7 @@ export function CreateTaskModal({
         deadline: null,
         estimated_hours: undefined,
       })
+      setSelectedFiles([])
       onClose()
     } catch (error) {
       console.error('Error creating task:', error)
@@ -123,6 +126,7 @@ export function CreateTaskModal({
       deadline: null,
       estimated_hours: undefined,
     })
+    setSelectedFiles([])
     setErrors({})
     onClose()
   }
@@ -318,6 +322,21 @@ export function CreateTaskModal({
                   </p>
                 )}
               </div>
+            </div>
+
+            {/* File Attachments */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Attachments (Optional)
+              </label>
+              <FileUpload
+                onFilesChange={setSelectedFiles}
+                maxFiles={5}
+                maxSizeMB={10}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Upload relevant documents, images, or files for this task
+              </p>
             </div>
           </div>
         </ModalBody>

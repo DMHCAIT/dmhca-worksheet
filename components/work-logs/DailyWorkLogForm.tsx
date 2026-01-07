@@ -4,6 +4,16 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Calendar, CheckCircle2, Clock } from 'lucide-react'
+import { FileUpload } from '@/components/ui/FileUpload'
+import { uploadWorkLogFile, deleteWorkLogFile } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth/AuthProvider'
+
+interface WorkLogAttachment {
+  id: number
+  file_name: string
+  file_url: string
+  file_size: number
+}
 
 interface WorkLog {
   id: number
@@ -17,9 +27,11 @@ interface WorkLog {
   status: string
   created_at: string
   updated_at: string
+  attachments?: WorkLogAttachment[]
 }
 
 export function DailyWorkLogForm() {
+  const { user } = useAuth()
   const [workLog, setWorkLog] = useState({
     work_description: '',
     tasks_completed: [] as string[],
@@ -27,6 +39,9 @@ export function DailyWorkLogForm() {
     challenges: '',
     achievements: ''
   })
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [existingAttachments, setExistingAttachments] = useState<WorkLogAttachment[]>([])
+  const [uploadingFiles, setUploadingFiles] = useState(false)
 
   const queryClient = useQueryClient()
   const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
@@ -57,12 +72,14 @@ export function DailyWorkLogForm() {
         challenges: todayLog.challenges || '',
         achievements: todayLog.achievements || ''
       })
+      setExistingAttachments(todayLog.attachments || [])
     }
   }, [todayLog])
 
   // Save work log mutation
   const saveWorkLog = useMutation({
     mutationFn: async (data: typeof workLog) => {
+      // First save the work log
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/work-logs/today`, {
         method: 'POST',
         headers: {
@@ -75,7 +92,38 @@ export function DailyWorkLogForm() {
         const error = await response.json()
         throw new Error(error.error?.message || 'Failed to save work log')
       }
-      return response.json()
+      const result = await response.json()
+      
+      // Upload files if any
+      if (selectedFiles.length > 0 && result.data?.id && user?.id) {
+        setUploadingFiles(true)
+        try {
+          for (const file of selectedFiles) {
+            // Upload to Supabase storage
+            const { url, path } = await uploadWorkLogFile(file, result.data.id, user.id)
+            
+            // Save attachment record in database
+            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/work-logs/${result.data.id}/attachments`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                file_name: file.name,
+                file_url: url,
+                file_size: file.size,
+                file_type: file.type
+              })
+            })
+          }
+          setSelectedFiles([])
+        } finally {
+          setUploadingFiles(false)
+        }
+      }
+      
+      return result
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-log-today'] })
@@ -83,8 +131,34 @@ export function DailyWorkLogForm() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to save work log')
+      setUploadingFiles(false)
     }
   })
+
+  const handleRemoveExistingFile = async (fileUrl: string) => {
+    if (!todayLog?.id) return
+    
+    try {
+      // Delete from storage
+      await deleteWorkLogFile(fileUrl)
+      
+      // Delete from database
+      const attachment = existingAttachments.find(a => a.file_url === fileUrl)
+      if (attachment) {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/work-logs/${todayLog.id}/attachments/${attachment.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          }
+        })
+        
+        setExistingAttachments(prev => prev.filter(a => a.file_url !== fileUrl))
+        toast.success('File removed')
+      }
+    } catch (error) {
+      toast.error('Failed to remove file')
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -195,6 +269,27 @@ export function DailyWorkLogForm() {
           />
         </div>
 
+        {/* File Attachments */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Attachments (Optional)
+          </label>
+          <FileUpload
+            onFilesChange={setSelectedFiles}
+            existingFiles={existingAttachments.map(a => ({
+              name: a.file_name,
+              url: a.file_url,
+              size: a.file_size
+            }))}
+            onRemoveExisting={handleRemoveExistingFile}
+            maxFiles={5}
+            maxSizeMB={10}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Upload screenshots, documents, or files related to your work
+          </p>
+        </div>
+
         {/* Action Buttons */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-200">
           <p className="text-sm text-gray-600">
@@ -202,10 +297,10 @@ export function DailyWorkLogForm() {
           </p>
           <button
             type="submit"
-            disabled={saveWorkLog.isPending}
+            disabled={saveWorkLog.isPending || uploadingFiles}
             className="btn btn-primary px-6"
           >
-            {saveWorkLog.isPending ? 'Saving...' : todayLog ? 'Update Log' : 'Submit Log'}
+            {uploadingFiles ? 'Uploading files...' : saveWorkLog.isPending ? 'Saving...' : todayLog ? 'Update Log' : 'Submit Log'}
           </button>
         </div>
       </form>

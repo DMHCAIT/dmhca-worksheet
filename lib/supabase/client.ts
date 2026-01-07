@@ -63,3 +63,36 @@ export async function deleteTaskFile(fileUrlOrPath: string): Promise<void> {
     throw error
   }
 }
+
+// Helper function to upload file for work log
+export async function uploadWorkLogFile(file: File, workLogId: number, userId: string): Promise<{ url: string; path: string }> {
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+  const filePath = `work-logs/${userId}/${workLogId}/${fileName}`
+
+  const { data, error } = await supabase.storage
+    .from('content')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    })
+
+  if (error) {
+    throw error
+  }
+
+  // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('content')
+    .getPublicUrl(filePath)
+
+  return {
+    url: publicUrl,
+    path: filePath
+  }
+}
+
+// Helper function to delete work log file
+export async function deleteWorkLogFile(fileUrlOrPath: string): Promise<void> {
+  return deleteTaskFile(fileUrlOrPath) // Reuse the same logic
+}

@@ -11,7 +11,10 @@ router.get('/today', authMiddleware, async (req, res) => {
     
     const { data, error } = await supabase
       .from('daily_work_logs')
-      .select('*')
+      .select(`
+        *,
+        attachments:work_log_attachments(id, file_name, file_url, file_size, file_type, created_at)
+      `)
       .eq('user_id', req.user.id)
       .eq('log_date', today)
       .limit(1)
@@ -490,6 +493,96 @@ router.get('/range-with-tasks', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching work logs with tasks:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Add attachment to work log
+router.post('/:id/attachments', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { file_name, file_url, file_size, file_type } = req.body;
+
+    const { data, error } = await supabase
+      .from('work_log_attachments')
+      .insert({
+        work_log_id: id,
+        file_name,
+        file_url,
+        file_size,
+        file_type,
+        uploaded_by: req.user.id
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    res.json({
+      success: true,
+      data,
+      message: 'Attachment added successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Delete attachment from work log
+router.delete('/:id/attachments/:attachmentId', authMiddleware, async (req, res) => {
+  try {
+    const { id, attachmentId } = req.params;
+
+    // Verify ownership
+    const { data: attachment, error: fetchError } = await supabase
+      .from('work_log_attachments')
+      .select('uploaded_by')
+      .eq('id', attachmentId)
+      .eq('work_log_id', id)
+      .single();
+
+    if (fetchError || !attachment) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Attachment not found' }
+      });
+    }
+
+    if (attachment.uploaded_by !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Not authorized to delete this attachment' }
+      });
+    }
+
+    const { error } = await supabase
+      .from('work_log_attachments')
+      .delete()
+      .eq('id', attachmentId);
+
+    if (error) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Attachment deleted successfully'
+    });
+  } catch (error) {
     res.status(500).json({ 
       success: false, 
       error: { code: 'SERVER_ERROR', message: error.message } 
