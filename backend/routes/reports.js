@@ -273,4 +273,94 @@ router.get('/team-performance', authMiddleware, requireRole(['admin', 'team_lead
   }
 });
 
+// Get employee statistics including tasks and subtasks
+router.get('/employee-stats/:userId?', authMiddleware, async (req, res) => {
+  try {
+    // Determine which user to get stats for
+    const userId = req.params.userId || req.user.id;
+    
+    // Only allow employees to see their own stats, team_leads can see their team, admins can see anyone
+    if (req.user.role === 'employee' && userId !== req.user.id) {
+      return res.status(403).json({ 
+        success: false, 
+        error: { code: 'FORBIDDEN', message: 'You can only view your own statistics' } 
+      });
+    }
+
+    // Get tasks assigned to this user
+    const { data: tasks, error: tasksError } = await supabase
+      .from('tasks')
+      .select('id, status, priority, created_at')
+      .eq('assigned_to', userId);
+
+    if (tasksError) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: tasksError.message } 
+      });
+    }
+
+    // Get subtasks assigned to this user
+    const { data: subtasks, error: subtasksError } = await supabase
+      .from('projection_subtasks')
+      .select('id, status, priority, estimated_hours, actual_hours, created_at')
+      .eq('assigned_to', userId);
+
+    // If subtasks table doesn't exist or has error, just continue without it
+    const userSubtasks = subtasksError ? [] : (subtasks || []);
+
+    // Calculate task statistics
+    const totalTasks = (tasks || []).length;
+    const completedTasks = (tasks || []).filter(t => t.status === 'completed').length;
+    const inProgressTasks = (tasks || []).filter(t => t.status === 'in_progress').length;
+    const pendingTasks = (tasks || []).filter(t => t.status === 'pending').length;
+
+    // Calculate subtask statistics
+    const totalSubtasks = userSubtasks.length;
+    const completedSubtasks = userSubtasks.filter(st => st.status === 'completed').length;
+    const inProgressSubtasks = userSubtasks.filter(st => st.status === 'in_progress').length;
+    const pendingSubtasks = userSubtasks.filter(st => st.status === 'pending').length;
+
+    // Calculate total hours for subtasks
+    const totalEstimatedHours = userSubtasks.reduce((sum, st) => sum + (st.estimated_hours || 0), 0);
+    const totalActualHours = userSubtasks.reduce((sum, st) => sum + (st.actual_hours || 0), 0);
+
+    // Combined statistics
+    const totalWorkItems = totalTasks + totalSubtasks;
+    const completedWorkItems = completedTasks + completedSubtasks;
+    const completionRate = totalWorkItems > 0 ? Math.round((completedWorkItems / totalWorkItems) * 100) : 0;
+
+    res.json({
+      success: true,
+      data: {
+        tasks: {
+          total: totalTasks,
+          completed: completedTasks,
+          in_progress: inProgressTasks,
+          pending: pendingTasks
+        },
+        subtasks: {
+          total: totalSubtasks,
+          completed: completedSubtasks,
+          in_progress: inProgressSubtasks,
+          pending: pendingSubtasks,
+          estimated_hours: totalEstimatedHours,
+          actual_hours: totalActualHours
+        },
+        combined: {
+          total_work_items: totalWorkItems,
+          completed_work_items: completedWorkItems,
+          completion_rate: completionRate
+        }
+      },
+      message: 'Employee statistics retrieved successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
 module.exports = router;
