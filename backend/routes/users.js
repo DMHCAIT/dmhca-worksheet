@@ -15,14 +15,18 @@ router.get('/', authMiddleware, async (req, res) => {
     // NO TEAM FILTERING - All users can see all users for chat functionality
     const { data: users, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name, role, team, department, phone, is_active, avatar_url, created_at, updated_at, branch_id')
+      .select('*')
       .order('full_name');
 
     console.log('📋 Showing all users (no team restrictions for chat)');
 
     if (error) {
       console.error('❌ Supabase error in users:', error);
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
     }
 
     console.log('✅ Users retrieved:', users?.length || 0);
