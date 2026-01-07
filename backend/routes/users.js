@@ -136,16 +136,29 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
     // Users can only see their own profile, unless they're admin/team_lead
     if (req.user.id !== id && !['admin', 'team_lead'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ 
+        success: false,
+        error: { code: 'ACCESS_DENIED', message: 'Access denied' } 
+      });
     }
 
-    const { data: user, error } = await supabase
+    const { data: users, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name, role, team, avatar_url, created_at')
+      .select('*')
       .eq('id', id)
-      .single();
+      .limit(1);
 
     if (error) {
+      console.error('❌ Error fetching user by ID:', error);
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    const user = users && users.length > 0 ? users[0] : null;
+
+    if (!user) {
       return res.status(404).json({ 
         success: false, 
         error: { code: 'NOT_FOUND', message: 'User not found' } 
