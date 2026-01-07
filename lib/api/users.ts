@@ -29,9 +29,10 @@ export const usersApi = {
   },
 
   async create(data: CreateUserRequest): Promise<User> {
-    // Map department to team for backend compatibility
+    // Send both department and team for backend compatibility
     const backendData = {
       ...data,
+      department: data.department,
       team: data.department || 'general'
     }
     const response = await apiClient.post<ApiResponse<any>>('/users', backendData)
