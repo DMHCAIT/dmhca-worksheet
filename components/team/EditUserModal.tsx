@@ -100,11 +100,13 @@ export function EditUserModal({
     }
 
     try {
-      // Convert null to undefined for branch_id to match User interface
+      // Only send fields that backend accepts
       const updateData = {
-        ...formData,
-        branch_id: formData.branch_id || undefined
+        full_name: formData.full_name,
+        department: formData.department,
+        role: formData.role
       }
+      console.log('🔄 Updating user with data:', updateData)
       await onSubmit(user.id, updateData)
       onClose()
     } catch (error) {

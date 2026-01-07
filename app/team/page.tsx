@@ -199,28 +199,8 @@ function TeamContent() {
   }
 
   const handleToggleUserStatus = async (userId: string, isActive: boolean) => {
-    try {
-      const token = localStorage.getItem('authToken')
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ is_active: isActive })
-      })
-
-      const data = await response.json()
-      if (!data.success) {
-        throw new Error(data.error?.message || 'Failed to update user status')
-      }
-
-      // Refresh users list
-      window.location.reload() // TODO: Use proper state management
-    } catch (error) {
-      console.error('Error toggling user status:', error)
-      alert((error as Error).message || 'Error updating user status')
-    }
+    // Status toggle functionality removed - is_active field doesn't exist in database
+    console.log('Status toggle disabled - is_active field not supported')
   }
 
   const canManageTeam = user?.role === 'admin' || user?.role === 'team_lead'
