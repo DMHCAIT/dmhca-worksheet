@@ -27,7 +27,6 @@ router.get('/', authMiddleware, async (req, res) => {
         error: { code: 'DATABASE_ERROR', message: error.message } 
       });
     }
-    }
 
     console.log('✅ Users retrieved:', users?.length || 0);
     console.log('📊 Sample user data:', users?.[0] ? { 
