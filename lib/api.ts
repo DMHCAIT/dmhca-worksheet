@@ -228,6 +228,16 @@ export const tasksApi = {
   deleteTask: async (id: string) => {
     const response = await api.delete(`/tasks/${id}`)
     return response.data.data || response.data
+  },
+
+  addAttachment: async (taskId: string, attachment: { file_name: string; file_url: string; file_size?: number; file_type?: string }) => {
+    const response = await api.post(`/tasks/${taskId}/attachments`, attachment)
+    return response.data.data || response.data
+  },
+
+  deleteAttachment: async (taskId: string, attachmentId: string) => {
+    const response = await api.delete(`/tasks/${taskId}/attachments/${attachmentId}`)
+    return response.data.data || response.data
   }
 }
 
