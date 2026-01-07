@@ -146,6 +146,7 @@ const ProjectionCard = memo(({
 
   const [showSubtasks, setShowSubtasks] = useState(false)
   const [showAddSubtask, setShowAddSubtask] = useState(false)
+  const [editingSubtask, setEditingSubtask] = useState<Subtask | null>(null)
   const [newSubtask, setNewSubtask] = useState({
     title: '',
     description: '',
@@ -307,6 +308,30 @@ const ProjectionCard = memo(({
     })
   }
 
+  const handleEditSubtask = (subtask: Subtask) => {
+    setEditingSubtask(subtask)
+    setShowAddSubtask(false)
+  }
+
+  const handleUpdateSubtask = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingSubtask) return
+    
+    updateSubtaskMutation.mutate({
+      id: editingSubtask.id,
+      data: {
+        title: editingSubtask.title,
+        description: editingSubtask.description,
+        assigned_to: editingSubtask.assigned_to,
+        estimated_hours: editingSubtask.estimated_hours,
+        priority: editingSubtask.priority,
+        deadline: editingSubtask.deadline,
+        status: editingSubtask.status
+      }
+    })
+    setEditingSubtask(null)
+  }
+
   const totalEstimated = subtasks.reduce((sum: number, st: Subtask) => sum + (st.estimated_hours || 0), 0)
   const totalActual = subtasks.reduce((sum: number, st: Subtask) => sum + (st.actual_hours || 0), 0)
   const completedCount = subtasks.filter((st: Subtask) => st.status === 'completed').length
@@ -418,13 +443,22 @@ const ProjectionCard = memo(({
                         <p className="text-sm text-gray-600 mt-1">{subtask.description}</p>
                       )}
                     </div>
-                    <button
-                      onClick={() => deleteSubtaskMutation.mutate(subtask.id)}
-                      className="text-red-600 hover:text-red-800 p-1"
-                      title="Delete subtask"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditSubtask(subtask)}
+                        className="text-blue-600 hover:text-blue-800 p-1"
+                        title="Edit subtask"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteSubtaskMutation.mutate(subtask.id)}
+                        className="text-red-600 hover:text-red-800 p-1"
+                        title="Delete subtask"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-sm">
@@ -463,6 +497,115 @@ const ProjectionCard = memo(({
             ) : (
               <p className="text-sm text-gray-500 text-center py-4">No subtasks yet. Add your first subtask below.</p>
             )}
+
+            {/* Edit Subtask Form */}
+            {editingSubtask ? (
+              <form onSubmit={handleUpdateSubtask} className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                <h4 className="font-medium text-gray-900 mb-3">Edit Subtask</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Task Title *</label>
+                    <input
+                      type="text"
+                      required
+                      className="input text-sm"
+                      value={editingSubtask.title}
+                      onChange={(e) => setEditingSubtask({ ...editingSubtask, title: e.target.value })}
+                      placeholder="e.g., Create homepage design mockup"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+                    <textarea
+                      className="input text-sm"
+                      rows={2}
+                      value={editingSubtask.description}
+                      onChange={(e) => setEditingSubtask({ ...editingSubtask, description: e.target.value })}
+                      placeholder="Brief description of the task..."
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Assign To *</label>
+                      <select
+                        required
+                        className="input text-sm"
+                        value={editingSubtask.assigned_to}
+                        onChange={(e) => setEditingSubtask({ ...editingSubtask, assigned_to: e.target.value })}
+                        disabled={usersLoading}
+                      >
+                        <option value="">
+                          {usersLoading ? 'Loading team members...' : usersError ? 'Error loading users' : 'Select Team Member'}
+                        </option>
+                        {users.map((user: any) => (
+                          <option key={user.id} value={user.id}>{user.full_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Estimated Hours *</label>
+                      <input
+                        type="number"
+                        required
+                        step="0.5"
+                        min="0.5"
+                        className="input text-sm"
+                        value={editingSubtask.estimated_hours}
+                        onChange={(e) => setEditingSubtask({ ...editingSubtask, estimated_hours: parseFloat(e.target.value) })}
+                        placeholder="e.g., 8"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Priority</label>
+                      <select
+                        className="input text-sm"
+                        value={editingSubtask.priority}
+                        onChange={(e) => setEditingSubtask({ ...editingSubtask, priority: e.target.value })}
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Deadline</label>
+                      <input
+                        type="date"
+                        className="input text-sm"
+                        value={editingSubtask.deadline}
+                        onChange={(e) => setEditingSubtask({ ...editingSubtask, deadline: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                    <select
+                      className="input text-sm"
+                      value={editingSubtask.status}
+                      onChange={(e) => setEditingSubtask({ ...editingSubtask, status: e.target.value })}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-4">
+                  <button type="submit" className="btn btn-primary text-sm py-2">
+                    Update Subtask
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingSubtask(null)}
+                    className="btn btn-secondary text-sm py-2"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : null}
 
             {/* Add Subtask Form */}
             {showAddSubtask ? (
