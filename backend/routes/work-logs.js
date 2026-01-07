@@ -411,4 +411,90 @@ router.get('/monthly-report', authMiddleware, async (req, res) => {
   }
 });
 
+// Get work logs with detailed task information
+router.get('/range-with-tasks', authMiddleware, async (req, res) => {
+  try {
+    const { start_date, end_date, user_id } = req.query;
+
+    let query = supabase
+      .from('daily_work_logs')
+      .select(`
+        *,
+        user:profiles!daily_work_logs_user_id_fkey(id, full_name, email, team, department, role)
+      `)
+      .gte('log_date', start_date)
+      .lte('log_date', end_date)
+      .order('log_date', { ascending: false });
+
+    // Apply filters based on role
+    if (req.user.role === 'employee') {
+      query = query.eq('user_id', req.user.id);
+    } else if (req.user.role === 'team_lead') {
+      // Team lead sees their team's logs
+      const { data: teamUsers } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('team', req.user.team);
+      
+      const userIds = teamUsers ? teamUsers.map(u => u.id) : [req.user.id];
+      query = query.in('user_id', userIds);
+    } else if (user_id && req.user.role === 'admin') {
+      // Admin can filter by specific user
+      query = query.eq('user_id', user_id);
+    }
+
+    const { data: workLogs, error } = await query;
+
+    if (error) {
+      return res.status(400).json({ 
+        success: false, 
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    // Enrich work logs with task details
+    const enrichedLogs = await Promise.all(workLogs.map(async (log) => {
+      // Get user's tasks completed in date range
+      const { data: tasks } = await supabase
+        .from('tasks')
+        .select('id, title, description, priority, status, assigned_to, created_at, completed_at, due_date')
+        .eq('assigned_to', log.user_id)
+        .gte('updated_at', log.log_date)
+        .lte('updated_at', log.log_date + ' 23:59:59')
+        .in('status', ['completed', 'in_progress']);
+
+      // Get user's projection subtasks completed in date range  
+      const { data: subtasks } = await supabase
+        .from('projection_subtasks')
+        .select('id, title, description, status, created_at, completed_at')
+        .eq('user_id', log.user_id)
+        .gte('updated_at', log.log_date)
+        .lte('updated_at', log.log_date + ' 23:59:59')
+        .eq('status', 'completed');
+
+      return {
+        ...log,
+        tasks_details: tasks || [],
+        subtasks_details: subtasks || [],
+        total_tasks_count: (tasks || []).length,
+        total_subtasks_count: (subtasks || []).length,
+        completed_tasks_count: (tasks || []).filter(t => t.status === 'completed').length,
+        completed_subtasks_count: (subtasks || []).length
+      };
+    }));
+
+    res.json({
+      success: true,
+      data: enrichedLogs,
+      message: 'Work logs with task details retrieved successfully'
+    });
+  } catch (error) {
+    console.error('Error fetching work logs with tasks:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
 module.exports = router;

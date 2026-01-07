@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Download, Calendar, User as UserIcon, Search, Filter } from 'lucide-react'
+import { Download, Calendar, User as UserIcon, Search, Filter, FileSpreadsheet } from 'lucide-react'
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
+import * as XLSX from 'xlsx'
 
 interface User {
   id: string
@@ -13,6 +14,27 @@ interface User {
   department: string
   team: string
   role: string
+}
+
+interface Task {
+  id: number
+  title: string
+  description: string
+  priority: string
+  status: string
+  assigned_to: string
+  created_at: string
+  completed_at: string
+  due_date: string
+}
+
+interface Subtask {
+  id: number
+  title: string
+  description: string
+  status: string
+  created_at: string
+  completed_at: string
 }
 
 interface WorkLog {
@@ -27,6 +49,12 @@ interface WorkLog {
   status: string
   created_at: string
   user?: User
+  tasks_details?: Task[]
+  subtasks_details?: Subtask[]
+  total_tasks_count?: number
+  total_subtasks_count?: number
+  completed_tasks_count?: number
+  completed_subtasks_count?: number
 }
 
 export function AdminWorkLogsViewer() {
@@ -57,11 +85,11 @@ export function AdminWorkLogsViewer() {
     enabled: !!token
   })
 
-  // Fetch work logs for date range
+  // Fetch work logs for date range with task details
   const { data: workLogs = [], isLoading, refetch } = useQuery<WorkLog[]>({
-    queryKey: ['admin-work-logs', selectedDate, selectedUser],
+    queryKey: ['admin-work-logs-with-tasks', selectedDate, selectedUser],
     queryFn: async () => {
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/work-logs/range?start_date=${selectedDate}&end_date=${selectedDate}${selectedUser !== 'all' ? `&user_id=${selectedUser}` : ''}`
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/work-logs/range-with-tasks?start_date=${selectedDate}&end_date=${selectedDate}${selectedUser !== 'all' ? `&user_id=${selectedUser}` : ''}`
       
       const response = await fetch(url, {
         headers: {
@@ -112,7 +140,115 @@ export function AdminWorkLogsViewer() {
     })
   }, [workLogs, selectedDepartment, searchQuery])
 
-  // Download day-wise report for all users
+  // Download comprehensive Excel report with task details
+  const downloadExcelReport = () => {
+    if (filteredWorkLogs.length === 0) {
+      alert('No work logs found for this date')
+      return
+    }
+
+    // Create workbook
+    const wb = XLSX.utils.book_new()
+
+    // Sheet 1: Summary
+    const summaryData = filteredWorkLogs.map(log => ({
+      'Employee': log.user?.full_name || 'Unknown',
+      'Department': log.user?.department || log.user?.team || 'N/A',
+      'Email': log.user?.email || 'N/A',
+      'Date': new Date(log.log_date).toLocaleDateString(),
+      'Hours Worked': log.hours_worked || 0,
+      'Tasks Count': (log.completed_tasks_count || 0) + (log.completed_subtasks_count || 0),
+      'Completed Tasks': log.completed_tasks_count || 0,
+      'Completed Subtasks': log.completed_subtasks_count || 0,
+      'Status': log.status || 'N/A'
+    }))
+    const ws1 = XLSX.utils.json_to_sheet(summaryData)
+    XLSX.utils.book_append_sheet(wb, ws1, 'Summary')
+
+    // Sheet 2: Detailed Work Logs
+    const detailedData = filteredWorkLogs.map(log => ({
+      'Employee': log.user?.full_name || 'Unknown',
+      'Department': log.user?.department || log.user?.team || 'N/A',
+      'Date': new Date(log.log_date).toLocaleDateString(),
+      'Hours Worked': log.hours_worked || 0,
+      'Work Description': log.work_description || 'N/A',
+      'Tasks Completed Summary': log.tasks_completed || 'N/A',
+      'Achievements': log.achievements || 'N/A',
+      'Challenges': log.challenges || 'N/A',
+      'Status': log.status || 'N/A'
+    }))
+    const ws2 = XLSX.utils.json_to_sheet(detailedData)
+    XLSX.utils.book_append_sheet(wb, ws2, 'Work Details')
+
+    // Sheet 3: Task Details
+    const taskDetailsData: any[] = []
+    filteredWorkLogs.forEach(log => {
+      // Add completed tasks
+      log.tasks_details?.forEach(task => {
+        taskDetailsData.push({
+          'Employee': log.user?.full_name || 'Unknown',
+          'Department': log.user?.department || log.user?.team || 'N/A',
+          'Log Date': new Date(log.log_date).toLocaleDateString(),
+          'Type': 'Task',
+          'Task Title': task.title,
+          'Description': task.description || 'N/A',
+          'Priority': task.priority || 'N/A',
+          'Status': task.status,
+          'Assigned Date': task.created_at ? new Date(task.created_at).toLocaleDateString() : 'N/A',
+          'Completed Date': task.completed_at ? new Date(task.completed_at).toLocaleDateString() : 'N/A',
+          'Due Date': task.due_date ? new Date(task.due_date).toLocaleDateString() : 'N/A'
+        })
+      })
+
+      // Add completed subtasks
+      log.subtasks_details?.forEach(subtask => {
+        taskDetailsData.push({
+          'Employee': log.user?.full_name || 'Unknown',
+          'Department': log.user?.department || log.user?.team || 'N/A',
+          'Log Date': new Date(log.log_date).toLocaleDateString(),
+          'Type': 'Subtask',
+          'Task Title': subtask.title,
+          'Description': subtask.description || 'N/A',
+          'Priority': 'N/A',
+          'Status': subtask.status,
+          'Assigned Date': subtask.created_at ? new Date(subtask.created_at).toLocaleDateString() : 'N/A',
+          'Completed Date': subtask.completed_at ? new Date(subtask.completed_at).toLocaleDateString() : 'N/A',
+          'Due Date': 'N/A'
+        })
+      })
+    })
+    
+    if (taskDetailsData.length > 0) {
+      const ws3 = XLSX.utils.json_to_sheet(taskDetailsData)
+      XLSX.utils.book_append_sheet(wb, ws3, 'Task Details')
+    }
+
+    // Sheet 4: Employee Performance
+    const performanceData = filteredWorkLogs.map(log => ({
+      'Employee': log.user?.full_name || 'Unknown',
+      'Department': log.user?.department || log.user?.team || 'N/A',
+      'Date': new Date(log.log_date).toLocaleDateString(),
+      'Total Hours': log.hours_worked || 0,
+      'Total Work Items': (log.total_tasks_count || 0) + (log.total_subtasks_count || 0),
+      'Tasks Worked On': log.total_tasks_count || 0,
+      'Tasks Completed': log.completed_tasks_count || 0,
+      'Subtasks Worked On': log.total_subtasks_count || 0,
+      'Subtasks Completed': log.completed_subtasks_count || 0,
+      'Task Completion Rate': log.total_tasks_count 
+        ? `${Math.round((log.completed_tasks_count || 0) / log.total_tasks_count * 100)}%`
+        : 'N/A',
+      'Has Achievements': log.achievements ? 'Yes' : 'No',
+      'Has Challenges': log.challenges ? 'Yes' : 'No'
+    }))
+    const ws4 = XLSX.utils.json_to_sheet(performanceData)
+    XLSX.utils.book_append_sheet(wb, ws4, 'Performance Metrics')
+
+    // Download the file
+    const dateStr = new Date(selectedDate).toISOString().split('T')[0]
+    XLSX.writeFile(wb, `work-logs-detailed-${dateStr}.xlsx`)
+  }
+
+  // Download day-wise report for all users (PDF)
   const downloadDayReport = () => {
     if (filteredWorkLogs.length === 0) {
       alert('No work logs found for this date')
@@ -307,21 +443,29 @@ export function AdminWorkLogsViewer() {
           </div>
         </div>
 
-        {/* Download Button */}
-        <div className="mt-4 flex justify-end">
+        {/* Download Buttons */}
+        <div className="mt-4 flex justify-end gap-3">
+          <button
+            onClick={downloadExcelReport}
+            disabled={filteredWorkLogs.length === 0}
+            className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed bg-green-600 hover:bg-green-700"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Download Excel Report ({filteredWorkLogs.length} logs)
+          </button>
           <button
             onClick={downloadDayReport}
             disabled={filteredWorkLogs.length === 0}
             className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
-            Download Day Report ({filteredWorkLogs.length} logs)
+            Download PDF Report
           </button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="text-sm text-gray-600 mb-1">Total Logs</div>
           <div className="text-3xl font-bold text-blue-600">{filteredWorkLogs.length}</div>
@@ -333,8 +477,18 @@ export function AdminWorkLogsViewer() {
           </div>
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="text-sm text-gray-600 mb-1">Avg Hours/Employee</div>
+          <div className="text-sm text-gray-600 mb-1">Tasks Completed</div>
           <div className="text-3xl font-bold text-purple-600">
+            {filteredWorkLogs.reduce((sum, log) => sum + (log.completed_tasks_count || 0) + (log.completed_subtasks_count || 0), 0)}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            {filteredWorkLogs.reduce((sum, log) => sum + (log.completed_tasks_count || 0), 0)} tasks + {' '}
+            {filteredWorkLogs.reduce((sum, log) => sum + (log.completed_subtasks_count || 0), 0)} subtasks
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="text-sm text-gray-600 mb-1">Avg Hours/Employee</div>
+          <div className="text-3xl font-bold text-orange-600">
             {filteredWorkLogs.length > 0
               ? (filteredWorkLogs.reduce((sum, log) => sum + parseFloat(log.hours_worked?.toString() || '0'), 0) / filteredWorkLogs.length).toFixed(1)
               : '0.0'}h
@@ -395,8 +549,63 @@ export function AdminWorkLogsViewer() {
 
                   {log.tasks_completed && (
                     <div>
-                      <div className="text-sm font-medium text-gray-700 mb-1">Tasks Completed:</div>
+                      <div className="text-sm font-medium text-gray-700 mb-1">Tasks Summary:</div>
                       <p className="text-sm text-gray-600">{log.tasks_completed}</p>
+                    </div>
+                  )}
+
+                  {/* Task Details */}
+                  {((log.tasks_details && log.tasks_details.length > 0) || (log.subtasks_details && log.subtasks_details.length > 0)) && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-3">
+                      <div className="text-sm font-medium text-blue-900 mb-2">
+                        📋 Completed Work Items: {(log.completed_tasks_count || 0) + (log.completed_subtasks_count || 0)}
+                      </div>
+                      
+                      {log.tasks_details && log.tasks_details.length > 0 && (
+                        <div className="mb-3">
+                          <div className="text-xs font-semibold text-blue-800 mb-2">Tasks ({log.tasks_details.length}):</div>
+                          <div className="space-y-2">
+                            {log.tasks_details.map((task, idx) => (
+                              <div key={idx} className="bg-white rounded p-2 text-xs">
+                                <div className="font-medium text-gray-900">{task.title}</div>
+                                <div className="flex gap-3 text-gray-600 mt-1">
+                                  <span className="capitalize">{task.priority}</span>
+                                  <span>•</span>
+                                  <span className="capitalize">{task.status}</span>
+                                  {task.completed_at && (
+                                    <>
+                                      <span>•</span>
+                                      <span>Completed: {new Date(task.completed_at).toLocaleDateString()}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {log.subtasks_details && log.subtasks_details.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold text-blue-800 mb-2">Subtasks ({log.subtasks_details.length}):</div>
+                          <div className="space-y-2">
+                            {log.subtasks_details.map((subtask, idx) => (
+                              <div key={idx} className="bg-white rounded p-2 text-xs">
+                                <div className="font-medium text-gray-900">{subtask.title}</div>
+                                <div className="flex gap-3 text-gray-600 mt-1">
+                                  <span className="capitalize">{subtask.status}</span>
+                                  {subtask.completed_at && (
+                                    <>
+                                      <span>•</span>
+                                      <span>Completed: {new Date(subtask.completed_at).toLocaleDateString()}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -426,7 +635,7 @@ export function AdminWorkLogsViewer() {
         <ul className="space-y-2 text-sm text-blue-800">
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span>View work logs for all employees across the organization</span>
+            <span>View work logs for all employees across the organization with detailed task information</span>
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
@@ -434,11 +643,19 @@ export function AdminWorkLogsViewer() {
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span>Download comprehensive day-wise reports in PDF format</span>
+            <span>Download comprehensive Excel reports with task completion details, timelines, and performance metrics</span>
           </li>
           <li className="flex items-start">
             <span className="mr-2">•</span>
-            <span>View summary statistics including total hours and completion rates</span>
+            <span>Download PDF reports for quick overview and sharing</span>
+          </li>
+          <li className="flex items-start">
+            <span className="mr-2">•</span>
+            <span>View when tasks were assigned and when they were completed for better tracking</span>
+          </li>
+          <li className="flex items-start">
+            <span className="mr-2">•</span>
+            <span>Track employee performance with completion rates and hours worked statistics</span>
           </li>
         </ul>
       </div>
