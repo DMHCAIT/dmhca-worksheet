@@ -12,6 +12,7 @@ import { tasksApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { uploadTaskFile, deleteTaskFile } from '@/lib/supabase/client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import FileUpload from '@/components/ui/FileUpload'
 
 interface ProjectionSubtask {
   id: number
@@ -53,6 +54,7 @@ function TasksContent() {
   const [uploadingFile, setUploadingFile] = useState(false)
   const [previewFile, setPreviewFile] = useState<{ url: string; name: string; type: string } | null>(null)
   const [taskDetails, setTaskDetails] = useState<{ comments: TaskComment[], attachments: TaskAttachment[] }>({ comments: [], attachments: [] })
+  const [createTaskFiles, setCreateTaskFiles] = useState<File[]>([])
   
   const [newTask, setNewTask] = useState<CreateTaskRequest>({
     title: '',
@@ -163,16 +165,17 @@ function TasksContent() {
     })
   }, [tasks, users, filterDepartment, filterAssignee, filterStatus, filterDateFrom, filterDateTo])
 
-  const handleCreateTask = async (taskData: CreateTaskRequest, files: File[]) => {
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault()
     try {
       // Create the task first
-      const result = await createTask.mutateAsync(taskData)
+      const result = await createTask.mutateAsync(newTask)
       const createdTask = result as any
       
       // Upload files if any
-      if (files.length > 0 && createdTask?.id) {
+      if (createTaskFiles.length > 0 && createdTask?.id) {
         setUploadingFile(true)
-        for (const file of files) {
+        for (const file of createTaskFiles) {
           try {
             const { url } = await uploadTaskFile(file, createdTask.id)
             await tasksApi.addAttachment(createdTask.id.toString(), {
@@ -189,6 +192,17 @@ function TasksContent() {
         setUploadingFile(false)
       }
       
+      // Reset form
+      setNewTask({
+        title: '',
+        description: '',
+        status: 'pending',
+        priority: 'medium',
+        project_id: null,
+        assigned_to: '',
+        deadline: null
+      })
+      setCreateTaskFiles([])
       setShowCreateModal(false)
       toast.success('Task created successfully!')
       refetch()
@@ -987,12 +1001,26 @@ function TasksContent() {
                     className="input"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Attachments
+                  </label>
+                  <FileUpload
+                    files={createTaskFiles}
+                    onChange={setCreateTaskFiles}
+                    maxFiles={5}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-4 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false)
+                    setCreateTaskFiles([])
+                  }}
                   className="btn btn-secondary flex-1"
                   disabled={createTask.isPending}
                 >
@@ -1001,9 +1029,9 @@ function TasksContent() {
                 <button
                   type="submit"
                   className="btn btn-primary flex-1"
-                  disabled={createTask.isPending}
+                  disabled={createTask.isPending || uploadingFile}
                 >
-                  {createTask.isPending ? 'Creating...' : 'Create'}
+                  {uploadingFile ? 'Uploading...' : createTask.isPending ? 'Creating...' : 'Create'}
                 </button>
               </div>
             </form>
