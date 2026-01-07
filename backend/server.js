@@ -14,6 +14,7 @@ const reportRoutes = require('./routes/reports');
 const notificationRoutes = require('./routes/notifications');
 const chatRoutes = require('./routes/chat');
 const attendanceRoutes = require('./routes/attendance');
+const workLogsRoutes = require('./routes/work-logs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -111,6 +112,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/work-logs', workLogsRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
