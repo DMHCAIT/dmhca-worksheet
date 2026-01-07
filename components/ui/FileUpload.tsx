@@ -16,13 +16,62 @@ export function FileUpload({
   onFilesChange,
   maxFiles = 5,
   maxSizeMB = 10,
-  acceptedTypes = ['image/*', 'application/pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt'],
+  acceptedTypes = [
+    'image/*',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain',
+    'text/csv',
+    '.doc',
+    '.docx',
+    '.xls',
+    '.xlsx',
+    '.pdf',
+    '.txt',
+    '.csv'
+  ],
   existingFiles = [],
   onRemoveExisting
 }: FileUploadProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [error, setError] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const isFileTypeAccepted = (file: File): boolean => {
+    const fileName = file.name.toLowerCase()
+    const fileType = file.type.toLowerCase()
+    
+    // Define accepted MIME types and extensions
+    const acceptedMimeTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      'text/csv'
+    ]
+    
+    const acceptedExtensions = [
+      '.jpg', '.jpeg', '.png', '.gif', '.webp',
+      '.pdf',
+      '.doc', '.docx',
+      '.xls', '.xlsx',
+      '.txt', '.csv'
+    ]
+    
+    // Check MIME type
+    if (fileType && acceptedMimeTypes.includes(fileType)) {
+      return true
+    }
+    
+    // Check file extension as fallback
+    return acceptedExtensions.some(ext => fileName.endsWith(ext))
+  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -37,6 +86,12 @@ export function FileUpload({
     // Validate each file
     const validFiles: File[] = []
     for (const file of files) {
+      // Check file type
+      if (!isFileTypeAccepted(file)) {
+        setError(`File type not supported: "${file.name}". Please use images, PDF, Word, Excel, or text files.`)
+        continue
+      }
+      
       // Check file size
       if (file.size > maxSizeMB * 1024 * 1024) {
         setError(`File "${file.name}" exceeds ${maxSizeMB}MB limit`)
@@ -103,7 +158,7 @@ export function FileUpload({
             Max {maxFiles} files, up to {maxSizeMB}MB each
           </p>
           <p className="text-xs text-gray-400 mt-1">
-            Supported: Images, PDF, Word, Excel, Text
+            Supported: Images, PDF, Word (.doc/.docx), Excel (.xls/.xlsx), Text, CSV
           </p>
           <input
             ref={fileInputRef}

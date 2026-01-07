@@ -29,7 +29,7 @@ CREATE POLICY "Users can insert their own work log attachments"
 ON public.work_log_attachments FOR INSERT 
 WITH CHECK (auth.uid() = uploaded_by);
 
-CREATE POLICY "Users can delete their own work log attachments" 
+CREATE POLICY "Users can delete their own work log attachments"
 ON public.work_log_attachments FOR DELETE 
 USING (auth.uid() = uploaded_by);
 
