@@ -205,9 +205,11 @@ router.post('/checkout', authMiddleware, async (req, res) => {
 
     console.log('🏃 POST /api/attendance/checkout - User:', req.user.email);
     console.log('📍 Location:', { latitude, longitude, accuracy });
+    console.log('📅 Date:', today);
 
     // Validate input
     if (!latitude || !longitude) {
+      console.log('❌ Missing location coordinates');
       return res.status(400).json({
         success: false,
         error: { code: 'MISSING_LOCATION', message: 'Location coordinates are required' }
@@ -220,16 +222,36 @@ router.post('/checkout', authMiddleware, async (req, res) => {
       .select('*')
       .eq('user_id', userId)
       .eq('date', today)
-      .single();
+      .maybeSingle();
 
-    if (checkError || !existingAttendance) {
+    console.log('🔍 Existing attendance check:', { existingAttendance, error: checkError });
+
+    if (checkError) {
+      console.error('❌ Database error checking attendance:', checkError);
+      return res.status(400).json({
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: checkError.message }
+      });
+    }
+
+    if (!existingAttendance) {
+      console.log('❌ No check-in record found');
       return res.status(400).json({
         success: false,
         error: { code: 'NOT_CHECKED_IN', message: 'You must check in first before checking out' }
       });
     }
 
+    if (!existingAttendance.clock_in_time) {
+      console.log('❌ No clock-in time found in record');
+      return res.status(400).json({
+        success: false,
+        error: { code: 'NO_CLOCK_IN_TIME', message: 'Invalid attendance record: no clock-in time found' }
+      });
+    }
+
     if (existingAttendance.clock_out_time) {
+      console.log('❌ Already clocked out:', existingAttendance.clock_out_time);
       return res.status(400).json({
         success: false,
         error: { code: 'ALREADY_CHECKED_OUT', message: 'You have already checked out today' }
@@ -253,13 +275,16 @@ router.post('/checkout', authMiddleware, async (req, res) => {
 
     console.log('🎯 Location validation result:', isValidLocation);
 
-    // Note: We allow checkout from any location, but we track if it's valid
-    // This is more flexible than clock-in which must be from office
-
     // Calculate total hours worked
     const checkInTime = new Date(existingAttendance.clock_in_time);
     const checkOutTime = new Date(now);
     const totalHours = ((checkOutTime - checkInTime) / (1000 * 60 * 60)).toFixed(2); // Hours with 2 decimal places
+
+    console.log('⏱️ Time calculation:', {
+      checkIn: checkInTime.toISOString(),
+      checkOut: checkOutTime.toISOString(),
+      totalHours: totalHours
+    });
 
     const locationData = { lat: latitude, lng: longitude, accuracy };
     const updateData = {
@@ -268,6 +293,8 @@ router.post('/checkout', authMiddleware, async (req, res) => {
       total_hours: parseFloat(totalHours),
       updated_at: now
     };
+
+    console.log('📝 Updating attendance with:', updateData);
 
     const { data: updatedAttendance, error: updateError } = await supabase
       .from('attendance_records')
@@ -291,7 +318,7 @@ router.post('/checkout', authMiddleware, async (req, res) => {
         isValidLocation,
         totalHours: parseFloat(totalHours),
         message: isValidLocation 
-          ? `Successfully checked out. Total hours: ${totalHours}` 
+          ? `Successfully checked out from office. Total hours: ${totalHours}` 
           : `Checked out from outside office premises. Total hours: ${totalHours}`
       }
     };

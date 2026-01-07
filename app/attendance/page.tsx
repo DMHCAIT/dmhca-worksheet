@@ -46,24 +46,19 @@ export default function AttendancePage() {
         if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
           console.log('🔍 Attendance API Response:', data)
         }
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${data.error?.message || 'Failed to fetch attendance status'}`)
+        }
         return data.data
       } catch (error) {
         console.error('❌ API Error:', error)
-        // Return mock data for testing when API is down
-        const mockAttendance = {
-          id: 1,
-          clock_in_time: '2026-01-02T09:00:00.000Z',
-          clock_out_time: null, // null means still clocked in
-          is_within_office: true
-        }
-        return {
-          attendance: mockAttendance,
-          canCheckIn: false,
-          canCheckOut: true
-        }
+        // Instead of returning mock data, throw the error to trigger retry
+        throw error
       }
     },
     refetchInterval: 30000, // Refresh every 30 seconds
+    retry: 3, // Retry up to 3 times on failure
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000)
   })
 
   const attendance = attendanceData?.attendance
@@ -202,6 +197,15 @@ export default function AttendancePage() {
       }
 
       const token = localStorage.getItem('authToken')
+      console.log('🏃 Clock out attempt:', {
+        location: {
+          lat: currentLocation.coords.latitude,
+          lng: currentLocation.coords.longitude,
+          accuracy: currentLocation.coords.accuracy
+        },
+        hasToken: !!token
+      })
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/attendance/checkout`, {
         method: 'POST',
         headers: {
@@ -216,17 +220,27 @@ export default function AttendancePage() {
       })
 
       const data = await response.json()
+      console.log('🏃 Clock out response:', data)
+      
+      if (!response.ok) {
+        console.error('❌ Clock out failed:', data)
+        throw new Error(data.error?.message || `HTTP ${response.status}: Failed to clock out`)
+      }
+      
       if (!data.success) {
         throw new Error(data.error?.message || 'Failed to clock out')
       }
       return data
     },
     onSuccess: (data) => {
-      toast.success(data.message || 'Clocked out successfully!')
+      console.log('✅ Clock out successful:', data)
+      toast.success(data.message || `Clocked out successfully! Total hours: ${data.data?.totalHours || 'N/A'}`)
       queryClient.invalidateQueries({ queryKey: ['attendance-status'] })
+      queryClient.invalidateQueries({ queryKey: ['attendance-history'] })
     },
     onError: (error: Error) => {
-      toast.error(error.message)
+      console.error('❌ Clock out error:', error)
+      toast.error(`Clock out failed: ${error.message}`)
     }
   })
 
@@ -252,6 +266,27 @@ export default function AttendancePage() {
   useEffect(() => {
     getCurrentLocation()
   }, [])
+
+  // Remind users to clock out if they've been clocked in for a long time
+  useEffect(() => {
+    if (attendance && attendance.clock_in_time && !attendance.clock_out_time) {
+      const clockInTime = new Date(attendance.clock_in_time)
+      const now = new Date()
+      const hoursWorked = (now.getTime() - clockInTime.getTime()) / (1000 * 60 * 60)
+      
+      // Show reminder after 8+ hours of being clocked in
+      if (hoursWorked >= 8) {
+        const reminderTimeout = setTimeout(() => {
+          toast('⏰ You\'ve been clocked in for over 8 hours. Don\'t forget to clock out when you leave!', {
+            duration: 6000,
+            icon: '⚠️'
+          })
+        }, 2000)
+        
+        return () => clearTimeout(reminderTimeout)
+      }
+    }
+  }, [attendance])
 
   // Use API response values for clock in/out availability with better fallbacks
   const canClockIn = attendanceData?.canCheckIn ?? (!attendance || !attendance.clock_in_time || attendance.clock_out_time)
@@ -345,14 +380,19 @@ export default function AttendancePage() {
               )}
 
               {canClockOut && (
-                <button
-                  onClick={handleClockOut}
-                  disabled={!currentLocation || clockOutMutation.isPending}
-                  className="w-full bg-red-600 text-white py-3 px-4 rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                >
-                  <Clock className="w-4 h-4 mr-2" />
-                  {clockOutMutation.isPending ? 'Clocking Out...' : 'Clock Out'}
-                </button>
+                <div className="space-y-2">
+                  <div className="text-sm text-orange-600 font-medium text-center bg-orange-50 rounded p-2">
+                    🕒 Remember to clock out when you leave!
+                  </div>
+                  <button
+                    onClick={handleClockOut}
+                    disabled={!currentLocation || clockOutMutation.isPending}
+                    className="w-full bg-red-600 text-white py-3 px-4 rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center font-medium text-lg"
+                  >
+                    <Clock className="w-5 h-5 mr-2" />
+                    {clockOutMutation.isPending ? 'Clocking Out...' : 'Clock Out'}
+                  </button>
+                </div>
               )}
               
               {!canClockIn && !canClockOut && (
@@ -364,7 +404,11 @@ export default function AttendancePage() {
           </div>
 
           {/* Today's Status Card */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className={`rounded-lg border p-6 ${
+            attendance && attendance.clock_in_time && !attendance.clock_out_time
+              ? 'bg-blue-50 border-blue-200'
+              : 'bg-white border-gray-200'
+          }`}>
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Today's Status</h2>
             
             {attendance ? (
@@ -379,25 +423,35 @@ export default function AttendancePage() {
                 {attendance.clock_in_time && (
                   <div className="flex items-center text-gray-600">
                     <Clock className="w-4 h-4 mr-2" />
-                    <span>In: {new Date(attendance.clock_in_time).toLocaleTimeString()}</span>
+                    <span>In: {new Date(attendance.clock_in_time).toLocaleTimeString('en-US', {
+                      hour12: true,
+                      hour: 'numeric',
+                      minute: '2-digit'
+                    })}</span>
                   </div>
                 )}
                 
                 {attendance.clock_out_time ? (
                   <div className="flex items-center text-gray-600">
                     <Clock className="w-4 h-4 mr-2" />
-                    <span>Out: {new Date(attendance.clock_out_time).toLocaleTimeString()}</span>
+                    <span>Out: {new Date(attendance.clock_out_time).toLocaleTimeString('en-US', {
+                      hour12: true,
+                      hour: 'numeric',
+                      minute: '2-digit'
+                    })}</span>
                   </div>
                 ) : attendance.clock_in_time ? (
-                  <div className="flex items-center text-blue-600">
-                    <Clock className="w-4 h-4 mr-2" />
-                    <span>Still clocked in - ready to clock out</span>
+                  <div className="flex items-center justify-between bg-blue-100 rounded-lg p-3 mt-3">
+                    <div className="flex items-center text-blue-700">
+                      <Clock className="w-5 h-5 mr-2" />
+                      <span className="font-medium">⚠️ Still clocked in - Don't forget to clock out!</span>
+                    </div>
                   </div>
                 ) : null}
 
                 {attendance.total_hours && (
                   <div className="flex items-center text-gray-600">
-                    <Clock className="w-4 h-4 mr-2" />
+                    <TrendingUp className="w-4 h-4 mr-2" />
                     <span>Total: {attendance.total_hours} hours</span>
                   </div>
                 )}
