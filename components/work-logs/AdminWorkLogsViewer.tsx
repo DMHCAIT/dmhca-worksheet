@@ -48,6 +48,7 @@ interface WorkLog {
   achievements: string
   status: string
   created_at: string
+  updated_at?: string
   user?: User
   tasks_details?: Task[]
   subtasks_details?: Subtask[]
