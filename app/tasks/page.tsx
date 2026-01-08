@@ -160,8 +160,7 @@ function TasksContent() {
             await tasksApi.addAttachment(createdTask.id.toString(), {
               file_name: file.name,
               file_url: url,
-              file_size: file.size,
-              uploaded_by: user?.id || ''
+              file_size: file.size
             })
           } catch (error) {
             console.error('Error uploading file:', error)
