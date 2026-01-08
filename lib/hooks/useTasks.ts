@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query'
-import { tasksApi } from '@/lib/api'
+import { tasksApi } from '@/lib/api/tasks'
 import { Task, CreateTaskRequest, UpdateTaskRequest, TaskComment } from '@/types'
 import toast from 'react-hot-toast'
 
