@@ -245,7 +245,7 @@ export function ProjectResources({ projectId, projectName, isOwner }: ProjectRes
       toast.success('Member added successfully')
     } catch (error) {
       console.error('❌ Add member error:', error)
-      toast.error('Failed to add member: ' + error.message)
+      toast.error('Failed to add member: ' + (error instanceof Error ? error.message : 'Unknown error'))
     }
   }
 
