@@ -811,11 +811,11 @@ function TasksContent() {
                       <div className="text-sm">
                         <span className="font-medium text-gray-900">{subtask.estimated_hours || 0}h</span>
                         <span className="text-gray-400"> / </span>
-                        <span className={subtask.actual_hours > (subtask.estimated_hours || 0) ? 'text-red-600 font-medium' : 'text-gray-600'}>
+                        <span className={(subtask.actual_hours || 0) > (subtask.estimated_hours || 0) ? 'text-red-600 font-medium' : 'text-gray-600'}>
                           {subtask.actual_hours || 0}h
                         </span>
                       </div>
-                      {subtask.actual_hours > (subtask.estimated_hours || 0) && (
+                      {(subtask.actual_hours || 0) > (subtask.estimated_hours || 0) && (
                         <div className="text-xs text-red-500 mt-1">Over estimate</div>
                       )}
                     </td>
