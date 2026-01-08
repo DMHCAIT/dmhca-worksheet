@@ -91,16 +91,40 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
     }
   }
 
+  const handleCreateTestNotification = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications/test`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (response.ok) {
+        toast.success('Test notification created!')
+        // Refresh notifications
+        setTimeout(() => window.location.reload(), 1000)
+      } else {
+        toast.error('Failed to create test notification')
+      }
+    } catch (error) {
+      console.error('Test notification error:', error)
+      toast.error('Error creating test notification')
+    }
+  }
+
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       {/* Bell Icon */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        className="relative p-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-gray-200"
+        title={`${unreadCount} unread notifications`}
       >
-        <Bell className="w-6 h-6" />
+        <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -114,6 +138,14 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
               <div className="flex items-center gap-2">
+                {/* Test button for debugging */}
+                <button
+                  onClick={handleCreateTestNotification}
+                  className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                  title="Create test notification"
+                >
+                  Test
+                </button>
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllAsRead}
