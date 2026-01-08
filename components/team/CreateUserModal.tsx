@@ -8,7 +8,9 @@ interface CreateUserModalProps {
   onClose: () => void
   onSubmit: (data: CreateUserForm) => Promise<void>
   offices: Array<{ id: number; name: string }>
-  isLoading?: boolean  currentUserRole?: string}
+  isLoading?: boolean
+  currentUserRole?: string
+}
 
 const roleOptions: SelectOption<UserRole>[] = [
   { value: 'employee', label: 'Employee', description: 'Standard team member' },
