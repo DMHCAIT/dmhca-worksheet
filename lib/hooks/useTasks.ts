@@ -26,7 +26,7 @@ export function useTasks(options?: Omit<UseQueryOptions<Task[], Error>, 'queryKe
 export function useTask(id: number, options?: Omit<UseQueryOptions<Task, Error>, 'queryKey' | 'queryFn'>) {
   return useQuery<Task, Error>({
     queryKey: taskKeys.detail(id),
-    queryFn: () => tasksApi.getTask(id.toString()),
+    queryFn: () => tasksApi.getById(id),
     staleTime: 5 * 60 * 1000,
     retry: 3,
     enabled: !!id,
@@ -56,7 +56,7 @@ export function useUpdateTask() {
 
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateTaskRequest }) => 
-      tasksApi.update(id.toString(), data),
+      tasksApi.update(id, data),
     onMutate: async ({ id, data }) => {
       await queryClient.cancelQueries({ queryKey: taskKeys.detail(id) })
 
@@ -89,7 +89,7 @@ export function useDeleteTask() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: number) => tasksApi.delete(id.toString()),
+    mutationFn: (id: number) => tasksApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.all })
       toast.success('Task deleted successfully!')
