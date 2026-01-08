@@ -271,7 +271,7 @@ function TasksContent() {
       const comment = await addTaskComment.mutateAsync({ 
         taskId: viewingTask.id, 
         comment: newComment.trim() 
-      })
+      }) as TaskComment
       
       // Update taskDetails state with new comment
       setTaskDetails(prev => ({
