@@ -788,7 +788,10 @@ function TasksContent() {
                           {subtask.projection?.projection_type === 'weekly' ? '📊 Weekly' : '📅 Monthly'}
                         </span>
                         <span className="text-xs text-gray-500">
-                          {new Date(subtask.projection?.start_date).toLocaleDateString()} - {new Date(subtask.projection?.end_date).toLocaleDateString()}
+                          {subtask.projection?.start_date && subtask.projection?.end_date 
+                            ? `${new Date(subtask.projection.start_date).toLocaleDateString()} - ${new Date(subtask.projection.end_date).toLocaleDateString()}`
+                            : 'No date range'
+                          }
                         </span>
                       </div>
                     </td>
