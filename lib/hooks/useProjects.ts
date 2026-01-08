@@ -102,3 +102,100 @@ export function useDeleteProject() {
     },
   })
 }
+
+// Project Attachments Hooks
+export function useProjectAttachments(projectId: number) {
+  return useQuery({
+    queryKey: ['project-attachments', projectId],
+    queryFn: () => projectsApi.getAttachments(projectId),
+    enabled: !!projectId,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useUploadProjectAttachment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ projectId, file }: { projectId: number; file: File }) => 
+      projectsApi.uploadAttachment(projectId, file),
+    onSuccess: (_, { projectId }) => {
+      queryClient.invalidateQueries({ queryKey: ['project-attachments', projectId] })
+      toast.success('File uploaded successfully!')
+    },
+    onError: (error: any) => {
+      toast.error(error?.error?.message || 'Failed to upload file')
+    },
+  })
+}
+
+export function useDeleteProjectAttachment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ projectId, attachmentId }: { projectId: number; attachmentId: number }) => 
+      projectsApi.deleteAttachment(projectId, attachmentId),
+    onSuccess: (_, { projectId }) => {
+      queryClient.invalidateQueries({ queryKey: ['project-attachments', projectId] })
+      toast.success('File deleted successfully!')
+    },
+    onError: (error: any) => {
+      toast.error(error?.error?.message || 'Failed to delete file')
+    },
+  })
+}
+
+// Project Members Hooks
+export function useProjectMembers(projectId: number) {
+  return useQuery({
+    queryKey: ['project-members', projectId],
+    queryFn: () => projectsApi.getMembers(projectId),
+    enabled: !!projectId,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useAddProjectMember() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ projectId, userId, role }: { projectId: number; userId: string; role: string }) => 
+      projectsApi.addMember(projectId, userId, role),
+    onSuccess: (_, { projectId }) => {
+      queryClient.invalidateQueries({ queryKey: ['project-members', projectId] })
+      // Also invalidate the main projects query to update member counts
+      queryClient.invalidateQueries({ queryKey: projectKeys.all })
+      toast.success('Member added successfully!')
+    },
+    onError: (error: any) => {
+      toast.error(error?.error?.message || 'Failed to add member')
+    },
+  })
+}
+
+export function useRemoveProjectMember() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ projectId, memberId }: { projectId: number; memberId: number }) => 
+      projectsApi.removeMember(projectId, memberId),
+    onSuccess: (_, { projectId }) => {
+      queryClient.invalidateQueries({ queryKey: ['project-members', projectId] })
+      // Also invalidate the main projects query
+      queryClient.invalidateQueries({ queryKey: projectKeys.all })
+      toast.success('Member removed successfully!')
+    },
+    onError: (error: any) => {
+      toast.error(error?.error?.message || 'Failed to remove member')
+    },
+  })
+}
+
+// Get user profiles for member management
+export function useProfiles() {
+  return useQuery({
+    queryKey: ['profiles'],
+    queryFn: () => projectsApi.getProfiles(),
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  })
+}

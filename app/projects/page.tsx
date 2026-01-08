@@ -2,17 +2,21 @@
 
 import { useState } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { ProtectedRoute } from '@/lib/auth/AuthProvider'
+import { ProtectedRoute, useAuth } from '@/lib/auth/AuthProvider'
 import { useProjects, useCreateProject, useUpdateProject } from '@/lib/hooks'
 import { TableSkeleton } from '@/components/LoadingSkeleton'
 import { ErrorDisplay } from '@/components/ErrorDisplay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { ProjectResources } from '@/components/projects/ProjectResources'
 import { Project, CreateProjectRequest } from '@/types'
 
 function ProjectsContent() {
+  const { user } = useAuth()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showResourcesModal, setShowResourcesModal] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [newProject, setNewProject] = useState<CreateProjectRequest>({
     name: '',
     description: '',
@@ -48,6 +52,13 @@ function ProjectsContent() {
 
   const handleEditProject = (project: Project) => {
     setEditingProject(project)
+    setShowEditModal(true)
+  }
+
+  const handleViewResources = (project: Project) => {
+    setSelectedProject(project)
+    setShowResourcesModal(true)
+  }
     setShowEditModal(true)
   }
 
@@ -234,8 +245,11 @@ function ProjectsContent() {
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-4 border-t border-gray-100">
-                  <button className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                    View Details
+                  <button 
+                    onClick={() => handleViewResources(project)}
+                    className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  >
+                    Resources & Team
                   </button>
                   <button 
                     onClick={() => handleEditProject(project)}
@@ -456,6 +470,32 @@ function ProjectsContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Resources Modal */}
+      {showResourcesModal && selectedProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Project Resources & Team</h2>
+              <button
+                onClick={() => setShowResourcesModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6">
+              <ProjectResources
+                projectId={selectedProject.id}
+                projectName={selectedProject.name}
+                isOwner={selectedProject.created_by === user?.id}
+              />
+            </div>
           </div>
         </div>
       )}

@@ -521,4 +521,36 @@ router.get('/:id/stats', authMiddleware, async (req, res) => {
   }
 });
 
+// Get user profiles for project member management
+router.get('/profiles', authMiddleware, async (req, res) => {
+  try {
+    console.log('👤 GET /api/users/profiles - User:', req.user?.email);
+
+    const { data: profiles, error } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, role, team')
+      .order('full_name');
+
+    if (error) {
+      console.error('❌ Error fetching profiles:', error);
+      return res.status(400).json({
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: error.message }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: profiles || [],
+      message: 'Profiles retrieved successfully'
+    });
+  } catch (error) {
+    console.error('❌ Server error in profiles:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message }
+    });
+  }
+});
+
 module.exports = router;

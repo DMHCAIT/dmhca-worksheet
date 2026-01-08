@@ -97,6 +97,39 @@ export async function deleteWorkLogFile(fileUrlOrPath: string): Promise<void> {
   return deleteTaskFile(fileUrlOrPath) // Reuse the same logic
 }
 
+// Helper function to upload file for project
+export async function uploadProjectFile(file: File, projectId: number, userId: string): Promise<{ url: string; path: string }> {
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+  const filePath = `projects/${projectId}/${fileName}`
+
+  const { data, error } = await supabase.storage
+    .from('content')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false
+    })
+
+  if (error) {
+    throw error
+  }
+
+  // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('content')
+    .getPublicUrl(filePath)
+
+  return {
+    url: publicUrl,
+    path: filePath
+  }
+}
+
+// Helper function to delete project file
+export async function deleteProjectFile(fileUrlOrPath: string): Promise<void> {
+  return deleteTaskFile(fileUrlOrPath) // Reuse the same logic
+}
+
 // Helper function to upload file for chat
 export async function uploadChatFile(file: File, senderId: string, receiverId: string): Promise<{ url: string; path: string }> {
   const fileExt = file.name.split('.').pop()
