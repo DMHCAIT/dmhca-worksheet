@@ -298,58 +298,29 @@ function TasksContent() {
     setUploadingFile(true)
     
     try {
-      // Import security utilities dynamically
-      const { validateFileUpload, createSecureFormData } = await import('@/lib/utils/fileUploadSecurity')
+      // Upload file to Supabase storage
+      toast('Uploading file...', { duration: 2000 })
+      const fileUrl = await uploadTaskFile(file, viewingTask.id.toString())
       
-      // Comprehensive security validation
-      toast('Validating file security...', { duration: 2000 })
-      const validation = await validateFileUpload(file)
-      
-      if (!validation.isValid) {
-        toast.error(`Upload blocked: ${validation.error}`)
-        return
-      }
-      
-      if (!validation.metadata) {
-        toast.error('File validation failed - missing metadata')
-        return
-      }
-      
-      // Create secure FormData
-      const formData = createSecureFormData(
-        file,
-        validation.metadata,
-        {
-          taskId: viewingTask.id.toString(),
-          userId: user?.id?.toString() || '',
-          category: validation.metadata.category
-        }
-      )
-      
-      // TODO: Implement secure server-side upload API with additional validation
-      // Server should re-validate file type, scan for viruses, and store with proper permissions
-      
-      toast.success(`File "${validation.metadata.name}" validated successfully. Upload API integration pending.`)
-      
-      console.log('Secure upload ready:', {
-        originalName: file.name,
-        sanitizedName: validation.metadata.name,
-        type: validation.metadata.type,
-        size: validation.metadata.size,
-        category: validation.metadata.category
+      // Add attachment record to database
+      const attachment = await tasksApi.addAttachment(viewingTask.id, {
+        file_name: file.name,
+        file_url: fileUrl,
+        file_size: file.size
       })
       
-    } catch (error: any) {
-      console.error('Upload security error:', error)
-      const errorMessage = error?.message || 'File security validation failed'
+      // Update local state
+      setTaskDetails(prev => ({
+        ...prev,
+        attachments: [...prev.attachments, attachment]
+      }))
       
-      if (errorMessage.includes('security scan')) {
-        toast.error('File upload blocked by security scan')
-      } else if (errorMessage.includes('file type')) {
-        toast.error('Invalid file type - only documents, images, and archives allowed')
-      } else {
-        toast.error('Upload failed: Security validation error')
-      }
+      toast.success(`File "${file.name}" uploaded successfully!`)
+      
+    } catch (error: any) {
+      console.error('Upload error:', error)
+      const errorMessage = error?.message || 'File upload failed'
+      toast.error(`Upload failed: ${errorMessage}`)
     } finally {
       setUploadingFile(false)
     }
@@ -358,34 +329,35 @@ function TasksContent() {
   const handleDeleteAttachment = async (attachmentId: number) => {
     if (!viewingTask || !confirm('Delete this attachment?')) return
     
-    // TODO: Implement deleteAttachment API endpoint
-    toast('Delete attachment feature coming soon')
-    
-    // try {
-    //   // Find the attachment to get the file URL
-    //   const attachment = taskDetails.attachments.find(a => a.id === attachmentId)
-    //   
-    //   // Delete from database first
-    //   await tasksApi.deleteAttachment(viewingTask.id, attachmentId)
-    //   
-    //   // Try to delete from storage (non-critical if it fails)
-    //   if (attachment?.file_url) {
-    //     try {
-    //       await deleteTaskFile(attachment.file_url)
-    //     } catch (storageError) {
-    //       console.error('Failed to delete file from storage:', storageError)
-    //       // Continue anyway - database record is already deleted
-    //     }
-    //   }
-    //   
-    //   setTaskDetails(prev => ({
-    //     ...prev,
-    //     attachments: prev.attachments.filter(a => a.id !== attachmentId)
-    //   }))
-    //   toast.success('Attachment deleted')
-    // } catch (error) {
-    //   toast.error('Failed to delete attachment')
-    // }
+    try {
+      // Find the attachment to get the file URL
+      const attachment = taskDetails.attachments.find(a => a.id === attachmentId)
+      
+      // Delete from database first
+      await tasksApi.deleteAttachment(viewingTask.id, attachmentId)
+      
+      // Try to delete from storage (non-critical if it fails)
+      if (attachment?.file_url) {
+        try {
+          await deleteTaskFile(attachment.file_url)
+        } catch (storageError) {
+          console.error('Failed to delete file from storage:', storageError)
+          // Continue anyway - database record is already deleted
+        }
+      }
+      
+      // Update local state
+      setTaskDetails(prev => ({
+        ...prev,
+        attachments: prev.attachments.filter(a => a.id !== attachmentId)
+      }))
+      
+      toast.success('Attachment deleted successfully!')
+      
+    } catch (error: any) {
+      console.error('Delete attachment error:', error)
+      toast.error('Failed to delete attachment')
+    }
   }
 
   const handleViewAttachment = (attachment: TaskAttachment) => {
