@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => void
+  setUserData: (user: User, token: string) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -20,6 +21,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     checkAuthStatus()
+    
+    // Listen for storage changes (login from another tab)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'authToken' || e.key === 'user') {
+        checkAuthStatus()
+      }
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
   }, [])
 
   const checkAuthStatus = async () => {
@@ -53,6 +64,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     throw new Error('Use authApi.login() directly')
   }
 
+  const setUserData = (userData: User, token: string) => {
+    localStorage.setItem('authToken', token)
+    localStorage.setItem('user', JSON.stringify(userData))
+    Cookies.set('authToken', token, { expires: 7, secure: true, sameSite: 'strict' })
+    setUser(userData)
+  }
+
   const logout = () => {
     localStorage.removeItem('authToken')
     localStorage.removeItem('user')
@@ -61,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, setUserData }}>
       {children}
     </AuthContext.Provider>
   )

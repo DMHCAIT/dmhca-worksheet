@@ -2,23 +2,24 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth/AuthProvider'
 import LoginForm from '../../components/LoginForm'
 import { authApi } from '../../lib/api'
 import toast from 'react-hot-toast'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { user, setUserData } = useAuth()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     // Check if user is already logged in
-    const token = localStorage.getItem('authToken')
-    if (token) {
+    if (user) {
       router.push('/dashboard')
     } else {
       setLoading(false)
     }
-  }, [router])
+  }, [user, router])
 
   const handleLogin = async (credentials: any) => {
     try {
@@ -32,8 +33,8 @@ export default function LoginPage() {
           role: credentials.role
         })
         
-        localStorage.setItem('authToken', token)
-        localStorage.setItem('user', JSON.stringify(user))
+        // Update auth state immediately
+        setUserData(user, token)
         
         toast.success('Account created successfully!')
         router.push('/dashboard')
@@ -44,8 +45,8 @@ export default function LoginPage() {
           credentials.password
         )
         
-        localStorage.setItem('authToken', token)
-        localStorage.setItem('user', JSON.stringify(user))
+        // Update auth state immediately
+        setUserData(user, token)
         
         toast.success('Login successful!')
         router.push('/dashboard')
