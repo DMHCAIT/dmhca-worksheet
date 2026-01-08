@@ -27,7 +27,7 @@ function ReportsContent() {
   
   // Initialize filters based on user role
   const [filters, setFilters] = useState<ReportFilters>(() => ({
-    employee: user?.role === 'admin' ? 'all' : user?.full_name || 'all',
+    employee: (user?.role === 'admin' || user?.role === 'manager') ? 'all' : user?.full_name || 'all',
     viewMode: 'daily',
     dateFrom: '',
     dateTo: ''
@@ -38,7 +38,7 @@ function ReportsContent() {
 
   // Update filters when user loads
   useEffect(() => {
-    if (user && filters.employee === 'all' && user.role !== 'admin') {
+    if (user && filters.employee === 'all' && user.role !== 'admin' && user.role !== 'manager') {
       setFilters(prev => ({ ...prev, employee: user.full_name }))
     }
   }, [user, filters.employee])
@@ -53,6 +53,9 @@ function ReportsContent() {
         return task.assigned_to === user.id
       } else if (user?.role === 'team_lead') {
         return task.team === user.team
+      } else if (user?.role === 'manager') {
+        // Managers see all tasks like admins
+        return true
       }
       // Admin sees all tasks
       return true
@@ -122,7 +125,7 @@ function ReportsContent() {
     const uniqueEmployees = Array.from(new Set(
       users
         .filter(u => {
-          if (user?.role === 'admin') return true
+          if (user?.role === 'admin' || user?.role === 'manager') return true
           if (user?.role === 'team_lead') return u.team === user.team
           return u.id === user?.id
         })

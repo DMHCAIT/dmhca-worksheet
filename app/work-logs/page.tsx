@@ -12,8 +12,10 @@ import { Calendar, FileBarChart, Users } from 'lucide-react'
 function WorkLogsContent() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
+  const isManager = user?.role === 'manager'
+  const canViewAllUsers = isAdmin || isManager
   const [activeTab, setActiveTab] = useState<'daily' | 'reports' | 'admin'>(
-    isAdmin ? 'admin' : 'daily'
+    canViewAllUsers ? 'admin' : 'daily'
   )
 
   return (
@@ -27,7 +29,7 @@ function WorkLogsContent() {
       {/* Tabs */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
         <div className="flex border-b border-gray-200">
-          {isAdmin && (
+          {canViewAllUsers && (
             <button
               onClick={() => setActiveTab('admin')}
               className={`flex-1 px-6 py-4 text-center font-medium transition-colors ${
@@ -67,7 +69,7 @@ function WorkLogsContent() {
 
       {/* Content */}
       <div className="min-h-[600px]">
-        {activeTab === 'admin' && isAdmin ? (
+        {activeTab === 'admin' && canViewAllUsers ? (
           <AdminWorkLogsViewer />
         ) : activeTab === 'daily' ? (
           <div className="max-w-4xl">

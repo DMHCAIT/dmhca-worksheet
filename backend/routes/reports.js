@@ -38,8 +38,8 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
         projects = projectData;
       }
 
-      // Get user counts (admin only)
-      if (req.user.role === 'admin') {
+      // Get user counts (admin and manager only)
+      if (req.user.role === 'admin' || req.user.role === 'manager') {
         const { data: users, error: userError } = await supabase
           .from('profiles')
           .select('id');
@@ -223,7 +223,7 @@ router.get('/projects', authMiddleware, async (req, res) => {
 });
 
 // Get team performance data
-router.get('/team-performance', authMiddleware, requireRole(['admin', 'team_lead']), async (req, res) => {
+router.get('/team-performance', authMiddleware, requireRole(['admin', 'team_lead', 'manager']), async (req, res) => {
   try {
     // Get teams based on user role
     let teams = ['admin', 'digital_marketing', 'sales', 'it'];

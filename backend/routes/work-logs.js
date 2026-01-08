@@ -141,8 +141,8 @@ router.get('/range', authMiddleware, async (req, res) => {
       
       const userIds = teamUsers ? teamUsers.map(u => u.id) : [req.user.id];
       query = query.in('user_id', userIds);
-    } else if (user_id && req.user.role === 'admin') {
-      // Admin can filter by specific user
+    } else if (user_id && (req.user.role === 'admin' || req.user.role === 'manager')) {
+      // Admin and Manager can filter by specific user
       query = query.eq('user_id', user_id);
     }
 
@@ -190,7 +190,7 @@ router.get('/weekly-report', authMiddleware, async (req, res) => {
 
     // Determine user to report on
     let targetUserId = req.user.id;
-    if (user_id && (req.user.role === 'admin' || req.user.role === 'team_lead')) {
+    if (user_id && (req.user.role === 'admin' || req.user.role === 'team_lead' || req.user.role === 'manager')) {
       targetUserId = user_id;
     }
 
@@ -299,7 +299,7 @@ router.get('/monthly-report', authMiddleware, async (req, res) => {
 
     // Determine user to report on
     let targetUserId = req.user.id;
-    if (user_id && (req.user.role === 'admin' || req.user.role === 'team_lead')) {
+    if (user_id && (req.user.role === 'admin' || req.user.role === 'team_lead' || req.user.role === 'manager')) {
       targetUserId = user_id;
     }
 
@@ -441,8 +441,8 @@ router.get('/range-with-tasks', authMiddleware, async (req, res) => {
       
       const userIds = teamUsers ? teamUsers.map(u => u.id) : [req.user.id];
       query = query.in('user_id', userIds);
-    } else if (user_id && req.user.role === 'admin') {
-      // Admin can filter by specific user
+    } else if (user_id && (req.user.role === 'admin' || req.user.role === 'manager')) {
+      // Admin and Manager can filter by specific user
       query = query.eq('user_id', user_id);
     }
 
