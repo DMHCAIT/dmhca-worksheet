@@ -10,6 +10,7 @@ interface EditUserModalProps {
   user: User
   offices: Array<{ id: number; name: string }>
   isLoading?: boolean
+  currentUserRole?: string
 }
 
 const roleOptions: SelectOption<UserRole>[] = [
@@ -32,8 +33,21 @@ export function EditUserModal({
   onSubmit,
   user,
   offices,
-  isLoading = false
+  isLoading = false,
+  currentUserRole
 }: EditUserModalProps) {
+  // Filter role options based on current user's role
+  const availableRoles = roleOptions.filter(role => {
+    // Only admins can assign admin role
+    if (role.value === 'admin' && currentUserRole !== 'admin') {
+      return false
+    }
+    // Also prevent non-admins from editing existing admin users to other roles
+    if (user.role === 'admin' && currentUserRole !== 'admin') {
+      return role.value === 'admin' // Keep existing admin role only
+    }
+    return true
+  })
   const [formData, setFormData] = useState({
     full_name: user.full_name,
     email: user.email,
@@ -190,7 +204,7 @@ export function EditUserModal({
                   onChange={(e) => handleInputChange('role', e.target.value as UserRole)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  {roleOptions.map((option) => (
+                  {availableRoles.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>

@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ProtectedRoute, useAuth } from '@/lib/auth/AuthProvider'
-import { useTasks, useCreateTask, useUpdateTask, useDeleteTask, useProjects, useUsers } from '@/lib/hooks'
+import { useTasks, useCreateTask, useUpdateTask, useDeleteTask, useAddTaskComment, useProjects, useUsers } from '@/lib/hooks'
 import { TableSkeleton } from '@/components/LoadingSkeleton'
 import { ErrorDisplay } from '@/components/ErrorDisplay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -50,6 +50,7 @@ function TasksContent() {
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
   const deleteTask = useDeleteTask()
+  const addTaskComment = useAddTaskComment()
 
   // Fetch assigned projection subtasks
   const { data: subtasks = [], isLoading: subtasksLoading } = useQuery<ProjectionSubtask[]>({
@@ -267,12 +268,21 @@ function TasksContent() {
     if (!viewingTask || !newComment.trim()) return
     
     try {
-      // TODO: Implement addComment API endpoint
-      // const comment = await tasksApi.addComment(viewingTask.id, newComment)
-      toast('Comment feature coming soon')
+      const comment = await addTaskComment.mutateAsync({ 
+        taskId: viewingTask.id, 
+        comment: newComment.trim() 
+      })
+      
+      // Update taskDetails state with new comment
+      setTaskDetails(prev => ({
+        ...prev,
+        comments: [...prev.comments, comment]
+      }))
+      
       setNewComment('')
     } catch (error) {
-      toast.error('Failed to add comment')
+      console.error('Failed to add comment:', error)
+      // Error toast is handled by the mutation
     }
   }
 
@@ -1142,9 +1152,12 @@ function TasksContent() {
                 <button
                   onClick={handleAddComment}
                   className="btn btn-primary text-sm"
-                  disabled={!newComment.trim()}
+                  disabled={!newComment.trim() || addTaskComment.isPending}
                 >
-                  {user?.role === 'admin' ? '✓ Add Review' : '+ Add Comment'}
+                  {addTaskComment.isPending 
+                    ? 'Adding...' 
+                    : (user?.role === 'admin' ? '✓ Add Review' : '+ Add Comment')
+                  }
                 </button>
               </div>
 

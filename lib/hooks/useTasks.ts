@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query'
 import { tasksApi } from '@/lib/api'
-import { Task, CreateTaskRequest, UpdateTaskRequest } from '@/types'
+import { Task, CreateTaskRequest, UpdateTaskRequest, TaskComment } from '@/types'
 import toast from 'react-hot-toast'
 
 // Query keys
 export const taskKeys = {
   all: ['tasks'] as const,
   detail: (id: number) => ['tasks', id] as const,
+  comments: (taskId: number) => [...taskKeys.detail(taskId), 'comments'] as const,
 }
 
 // Get all tasks
@@ -95,6 +96,24 @@ export function useDeleteTask() {
     },
     onError: (error: any) => {
       toast.error(error?.error?.message || 'Failed to delete task')
+    },
+  })
+}
+
+// Add comment to task
+export function useAddTaskComment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ taskId, comment }: { taskId: number; comment: string }) => 
+      tasksApi.addComment(taskId, comment),
+    onSuccess: (newComment, { taskId }) => {
+      // Update the task details to include the new comment
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) })
+      toast.success('Comment added successfully!')
+    },
+    onError: (error: any) => {
+      toast.error(error?.error?.message || 'Failed to add comment')
     },
   })
 }

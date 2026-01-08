@@ -256,6 +256,7 @@ function TeamContent() {
         onSubmit={handleCreateUser}
         offices={offices}
         isLoading={createUser.isPending}
+        currentUserRole={user?.role}
       />
 
       {selectedUser && (
@@ -269,6 +270,7 @@ function TeamContent() {
           user={selectedUser}
           offices={offices}
           isLoading={updateUser.isPending}
+          currentUserRole={user?.role}
         />
       )}
 

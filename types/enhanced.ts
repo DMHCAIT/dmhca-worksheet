@@ -84,7 +84,7 @@ export interface TaskComment {
   id: number
   task_id: number
   user_id: string
-  content: string
+  comment: string
   created_at: string
   user: Pick<User, 'id' | 'full_name' | 'email'>
 }

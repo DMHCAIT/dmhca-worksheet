@@ -8,8 +8,7 @@ interface CreateUserModalProps {
   onClose: () => void
   onSubmit: (data: CreateUserForm) => Promise<void>
   offices: Array<{ id: number; name: string }>
-  isLoading?: boolean
-}
+  isLoading?: boolean  currentUserRole?: string}
 
 const roleOptions: SelectOption<UserRole>[] = [
   { value: 'employee', label: 'Employee', description: 'Standard team member' },
@@ -30,8 +29,17 @@ export function CreateUserModal({
   onClose,
   onSubmit,
   offices,
-  isLoading = false
+  isLoading = false,
+  currentUserRole
 }: CreateUserModalProps) {
+  // Filter role options based on current user's role
+  const availableRoles = roleOptions.filter(role => {
+    // Only admins can create admin users
+    if (role.value === 'admin' && currentUserRole !== 'admin') {
+      return false
+    }
+    return true
+  })
   const [formData, setFormData] = useState<CreateUserForm>({
     email: '',
     password: '',
@@ -257,7 +265,7 @@ export function CreateUserModal({
                   onChange={(e) => handleChange('role', e.target.value as UserRole)}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  {roleOptions.map(option => (
+                  {availableRoles.map(option => (
                     <option key={option.value} value={option.value} title={option.description}>
                       {option.label}
                     </option>
