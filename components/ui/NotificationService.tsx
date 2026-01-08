@@ -5,10 +5,10 @@ import { useAuth } from '@/lib/auth/AuthProvider'
 import toast from 'react-hot-toast'
 
 export default function NotificationService() {
-  const { user, isAuthenticated } = useAuth()
+  const { user } = useAuth()
 
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (!user) return
 
     // Check for overdue tasks every 30 minutes
     const checkOverdueTasks = async () => {
@@ -75,7 +75,7 @@ export default function NotificationService() {
       clearInterval(overdueInterval)
       clearInterval(messageInterval)
     }
-  }, [isAuthenticated])
+  }, [user])
 
   // This component doesn't render anything
   return null
