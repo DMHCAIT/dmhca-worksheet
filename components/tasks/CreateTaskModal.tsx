@@ -332,10 +332,11 @@ export function CreateTaskModal({
               <FileUpload
                 onFilesChange={setSelectedFiles}
                 maxFiles={5}
-                maxSizeMB={10}
+                maxSizeMB={50}
+                allowVideos={true}
               />
               <p className="text-xs text-gray-500 mt-1">
-                Upload relevant documents, images, or files for this task
+                Upload relevant documents, images, videos, or files for this task
               </p>
             </div>
           </div>

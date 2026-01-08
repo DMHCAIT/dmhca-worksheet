@@ -283,10 +283,11 @@ export function DailyWorkLogForm() {
             }))}
             onRemoveExisting={handleRemoveExistingFile}
             maxFiles={5}
-            maxSizeMB={10}
+            maxSizeMB={50}
+            allowVideos={true}
           />
           <p className="text-xs text-gray-500 mt-1">
-            Upload screenshots, documents, or files related to your work
+            Upload screenshots, documents, videos, or files related to your work
           </p>
         </div>
 

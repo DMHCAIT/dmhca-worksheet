@@ -20,6 +20,17 @@ export const ALLOWED_FILE_TYPES = {
   'image/webp': ['.webp'],
   'image/svg+xml': ['.svg'],
   
+  // Videos
+  'video/mp4': ['.mp4'],
+  'video/avi': ['.avi'],
+  'video/quicktime': ['.mov'],
+  'video/x-msvideo': ['.avi'],
+  'video/x-ms-wmv': ['.wmv'],
+  'video/webm': ['.webm'],
+  'video/x-flv': ['.flv'],
+  'video/x-matroska': ['.mkv'],
+  'video/3gpp': ['.3gp'],
+  
   // Archives (with size limits)
   'application/zip': ['.zip'],
   'application/x-rar-compressed': ['.rar'],
@@ -35,6 +46,7 @@ const DANGEROUS_EXTENSIONS = [
 // File size limits in bytes
 export const FILE_SIZE_LIMITS = {
   image: 10 * 1024 * 1024, // 10MB for images
+  video: 100 * 1024 * 1024, // 100MB for videos
   document: 25 * 1024 * 1024, // 25MB for documents
   archive: 50 * 1024 * 1024, // 50MB for archives
   default: 10 * 1024 * 1024 // 10MB default
@@ -45,7 +57,7 @@ interface FileValidationResult {
   error?: string
   metadata?: {
     type: string
-    category: 'image' | 'document' | 'archive' | 'other'
+    category: 'image' | 'video' | 'document' | 'archive' | 'other'
     size: number
     name: string
   }
@@ -75,13 +87,14 @@ export function validateFileType(file: File): { isValid: boolean; error?: string
   if (!allowedEntry) {
     return {
       isValid: false,
-      error: `File type ${mimeType} (${fileExtension}) is not allowed. Please use PDF, DOC, XLS, TXT, JPG, PNG, GIF, or ZIP files.`
+      error: `File type ${mimeType} (${fileExtension}) is not allowed. Please use PDF, DOC, XLS, TXT, JPG, PNG, GIF, MP4, MOV, AVI, or ZIP files.`
     }
   }
 
   // Determine file category
   let category: string = 'other'
   if (mimeType.startsWith('image/')) category = 'image'
+  else if (mimeType.startsWith('video/')) category = 'video'
   else if (mimeType.includes('pdf') || mimeType.includes('word') || mimeType.includes('excel') || mimeType === 'text/plain') category = 'document'
   else if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z')) category = 'archive'
 
@@ -97,6 +110,9 @@ export function validateFileSize(file: File, category: string): { isValid: boole
   switch (category) {
     case 'image':
       sizeLimit = FILE_SIZE_LIMITS.image
+      break
+    case 'video':
+      sizeLimit = FILE_SIZE_LIMITS.video
       break
     case 'document':
       sizeLimit = FILE_SIZE_LIMITS.document

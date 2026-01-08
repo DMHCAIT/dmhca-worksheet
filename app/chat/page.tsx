@@ -5,8 +5,9 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ProtectedRoute, useAuth } from '@/lib/auth/AuthProvider'
 import { useUsers } from '@/lib/hooks'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Send, Search, Circle } from 'lucide-react'
+import { Send, Search, Circle, Download, Eye } from 'lucide-react'
 import { useAdaptiveQueryOptions } from '@/lib/hooks/usePerformanceOptimization'
+import { ChatFileUpload } from '@/components/ui/ChatFileUpload'
 import toast from 'react-hot-toast'
 
 interface Message {
@@ -16,6 +17,11 @@ interface Message {
   message: string
   is_read: boolean
   created_at: string
+  message_type?: string
+  file_url?: string
+  file_name?: string
+  file_size?: number
+  file_type?: string
   sender: {
     id: string
     full_name: string
@@ -100,7 +106,7 @@ function ChatContent() {
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: async (messageText: string) => {
+    mutationFn: async (messageData: { message?: string; file_url?: string; file_name?: string; file_size?: number; file_type?: string; message_type?: string }) => {
       const token = localStorage.getItem('authToken')
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/messages`, {
         method: 'POST',
@@ -110,7 +116,7 @@ function ChatContent() {
         },
         body: JSON.stringify({
           receiver_id: selectedUser?.id,
-          message: messageText
+          ...messageData
         })
       })
       return response.json()
@@ -166,7 +172,13 @@ function ChatContent() {
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault()
     if (!newMessage.trim() || !selectedUser) return
-    sendMessageMutation.mutate(newMessage)
+    sendMessageMutation.mutate({ message: newMessage.trim(), message_type: 'text' })
+  }
+
+  // Send file message
+  const handleFileUpload = (fileData: any) => {
+    if (!selectedUser) return
+    sendMessageMutation.mutate(fileData)
   }
 
   // Merge conversations with all users for complete list
@@ -301,7 +313,55 @@ function ChatContent() {
                               : 'bg-white text-gray-900 border'
                           }`}
                         >
-                          <p className="text-sm">{msg.message}</p>
+                          {msg.message_type === 'text' || !msg.message_type ? (
+                            <p className="text-sm">{msg.message}</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {msg.message_type === 'image' && msg.file_url && (
+                                <div>
+                                  <img 
+                                    src={msg.file_url} 
+                                    alt={msg.file_name} 
+                                    className="max-w-full h-auto rounded border cursor-pointer"
+                                    onClick={() => window.open(msg.file_url, '_blank')}
+                                  />
+                                  <p className="text-xs mt-1">{msg.file_name}</p>
+                                </div>
+                              )}
+                              {msg.message_type === 'video' && msg.file_url && (
+                                <div>
+                                  <video 
+                                    src={msg.file_url} 
+                                    className="max-w-full h-auto rounded border"
+                                    controls
+                                  />
+                                  <p className="text-xs mt-1">{msg.file_name}</p>
+                                </div>
+                              )}
+                              {(msg.message_type === 'document' || msg.message_type === 'file') && msg.file_url && (
+                                <div className="flex items-center gap-2 p-2 border rounded">
+                                  <span className="text-lg">📎</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{msg.file_name}</p>
+                                    <p className="text-xs opacity-70">
+                                      {msg.file_size ? `${(msg.file_size / (1024 * 1024)).toFixed(1)} MB` : 'Unknown size'}
+                                    </p>
+                                  </div>
+                                  <a
+                                    href={msg.file_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1 rounded hover:bg-black/10"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </a>
+                                </div>
+                              )}
+                              {msg.message && (
+                                <p className="text-sm">{msg.message}</p>
+                              )}
+                            </div>
+                          )}
                           <p className={`text-xs mt-1 ${isOwnMessage ? 'text-blue-100' : 'text-gray-500'}`}>
                             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
@@ -314,8 +374,14 @@ function ChatContent() {
               </div>
 
               {/* Message Input */}
-              <form onSubmit={handleSendMessage} className="p-4 border-t">
-                <div className="flex gap-2">
+              <div className="p-4 border-t space-y-3">
+                <ChatFileUpload 
+                  onFileUpload={handleFileUpload}
+                  senderId={user?.id || ''}
+                  receiverId={selectedUser.id}
+                  disabled={sendMessageMutation.isPending}
+                />
+                <form onSubmit={handleSendMessage} className="flex gap-2">
                   <input
                     type="text"
                     value={newMessage}
@@ -330,8 +396,8 @@ function ChatContent() {
                   >
                     <Send className="w-4 h-4" />
                   </button>
-                </div>
-              </form>
+                </form>
+              </div>
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-500">

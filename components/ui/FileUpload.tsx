@@ -10,6 +10,8 @@ interface FileUploadProps {
   acceptedTypes?: string[]
   existingFiles?: { name: string; url: string; size?: number }[]
   onRemoveExisting?: (url: string) => void
+  compact?: boolean // For chat interface
+  allowVideos?: boolean // Enable video support
 }
 
 export function FileUpload({
@@ -34,7 +36,9 @@ export function FileUpload({
     '.csv'
   ],
   existingFiles = [],
-  onRemoveExisting
+  onRemoveExisting,
+  compact = false,
+  allowVideos = false
 }: FileUploadProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [error, setError] = useState<string>('')
@@ -63,6 +67,17 @@ export function FileUpload({
       '.xls', '.xlsx',
       '.txt', '.csv'
     ]
+
+    // Add video support if enabled
+    if (allowVideos) {
+      acceptedMimeTypes.push(
+        'video/mp4', 'video/avi', 'video/mov', 'video/wmv',
+        'video/flv', 'video/webm', 'video/mkv', 'video/3gpp'
+      )
+      acceptedExtensions.push(
+        '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.3gp', '.m4v'
+      )
+    }
     
     // Check MIME type
     if (fileType && acceptedMimeTypes.includes(fileType)) {
@@ -88,7 +103,10 @@ export function FileUpload({
     for (const file of files) {
       // Check file type
       if (!isFileTypeAccepted(file)) {
-        setError(`File type not supported: "${file.name}". Please use images, PDF, Word, Excel, or text files.`)
+        const supportedTypes = allowVideos 
+          ? 'images, videos, PDF, Word, Excel, or text files'
+          : 'images, PDF, Word, Excel, or text files'
+        setError(`File type not supported: "${file.name}". Please use ${supportedTypes}.`)
         continue
       }
       
@@ -129,6 +147,8 @@ export function FileUpload({
     const ext = fileName.split('.').pop()?.toLowerCase()
     if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
       return '🖼️'
+    } else if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', '3gp', 'm4v'].includes(ext || '')) {
+      return '🎥'
     } else if (['pdf'].includes(ext || '')) {
       return '📄'
     } else if (['doc', 'docx'].includes(ext || '')) {
@@ -148,18 +168,24 @@ export function FileUpload({
       {canAddMore && (
         <div
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors"
+          className={`border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors ${
+            compact ? 'p-3' : 'p-6'
+          }`}
         >
-          <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-          <p className="text-sm text-gray-600 mb-1">
+          <Upload className={`mx-auto mb-2 text-gray-400 ${compact ? 'w-6 h-6' : 'w-8 h-8'}`} />
+          <p className={`text-gray-600 mb-1 ${compact ? 'text-xs' : 'text-sm'}`}>
             Click to upload or drag and drop
           </p>
-          <p className="text-xs text-gray-500">
-            Max {maxFiles} files, up to {maxSizeMB}MB each
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            Supported: Images, PDF, Word (.doc/.docx), Excel (.xls/.xlsx), Text, CSV
-          </p>
+          {!compact && (
+            <>
+              <p className="text-xs text-gray-500">
+                Max {maxFiles} files, up to {maxSizeMB}MB each
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Supported: Images{allowVideos ? ', Videos' : ''}, PDF, Word (.doc/.docx), Excel (.xls/.xlsx), Text, CSV
+              </p>
+            </>
+          )}
           <input
             ref={fileInputRef}
             type="file"

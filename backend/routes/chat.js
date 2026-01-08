@@ -122,23 +122,48 @@ router.get('/messages/:otherUserId', authMiddleware, async (req, res) => {
 router.post('/messages', authMiddleware, async (req, res) => {
   try {
     const senderId = req.user.id;
-    const { receiver_id, message } = req.body;
+    const { receiver_id, message, file_url, file_name, file_size, file_type, message_type = 'text' } = req.body;
 
-    if (!receiver_id || !message) {
+    if (!receiver_id) {
       return res.status(400).json({ 
         success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'receiver_id and message are required' } 
+        error: { code: 'VALIDATION_ERROR', message: 'receiver_id is required' } 
       });
+    }
+
+    // Validate that either message or file data exists
+    if (!message && !file_url) {
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Either message text or file attachment is required' } 
+      });
+    }
+
+    const messageData = {
+      sender_id: senderId,
+      receiver_id,
+      message_type,
+      is_read: false
+    };
+
+    // Add message text if provided
+    if (message) {
+      messageData.message = message;
+    }
+
+    // Add file data if provided
+    if (file_url && file_name) {
+      messageData.file_url = file_url;
+      messageData.file_name = file_name;
+      messageData.file_type = file_type;
+      if (file_size) {
+        messageData.file_size = file_size;
+      }
     }
 
     const { data: newMessage, error } = await supabase
       .from('chat_messages')
-      .insert({
-        sender_id: senderId,
-        receiver_id,
-        message,
-        is_read: false
-      })
+      .insert(messageData)
       .select(`
         *,
         sender:profiles!sender_id(id, full_name, avatar_url),
