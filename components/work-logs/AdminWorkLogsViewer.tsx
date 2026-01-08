@@ -167,6 +167,7 @@ export function AdminWorkLogsViewer() {
       'Department': log.user?.department || log.user?.team || 'N/A',
       'Email': log.user?.email || 'N/A',
       'Date': new Date(log.log_date).toLocaleDateString(),
+      'Submitted': log.created_at ? new Date(log.created_at).toLocaleString() : 'N/A',
       'Hours Worked': log.hours_worked || 0,
       'Tasks Count': (log.completed_tasks_count || 0) + (log.completed_subtasks_count || 0),
       'Completed Tasks': log.completed_tasks_count || 0,
@@ -181,6 +182,8 @@ export function AdminWorkLogsViewer() {
       'Employee': log.user?.full_name || 'Unknown',
       'Department': log.user?.department || log.user?.team || 'N/A',
       'Date': new Date(log.log_date).toLocaleDateString(),
+      'Submitted': log.created_at ? new Date(log.created_at).toLocaleString() : 'N/A',
+      'Last Updated': log.updated_at && log.updated_at !== log.created_at ? new Date(log.updated_at).toLocaleString() : 'N/A',
       'Hours Worked': log.hours_worked || 0,
       'Work Description': log.work_description || 'N/A',
       'Tasks Completed Summary': log.tasks_completed || 'N/A',
@@ -296,6 +299,7 @@ export function AdminWorkLogsViewer() {
               <th style="padding: 10px; text-align: left;">Employee</th>
               <th style="padding: 10px; text-align: left;">Department</th>
               <th style="padding: 10px; text-align: left;">Date</th>
+              <th style="padding: 10px; text-align: left;">Submitted</th>
               <th style="padding: 10px; text-align: left;">Hours</th>
               <th style="padding: 10px; text-align: left;">Tasks</th>
             </tr>
@@ -309,16 +313,27 @@ export function AdminWorkLogsViewer() {
         ? log.tasks_completed.join(', ') 
         : (log.tasks_completed || 'N/A')
       
+      const submissionTime = log.created_at 
+        ? new Date(log.created_at).toLocaleString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true
+          })
+        : 'N/A'
+      
       html += `
         <tr style="background: ${bgColor}; border-bottom: 1px solid #e5e7eb;">
           <td style="padding: 10px;">${log.user?.full_name || 'Unknown'}</td>
           <td style="padding: 10px;">${log.user?.department || log.user?.team || 'N/A'}</td>
           <td style="padding: 10px;">${new Date(log.log_date).toLocaleDateString()}</td>
+          <td style="padding: 10px; color: #059669; font-weight: 500;">${submissionTime}</td>
           <td style="padding: 10px;">${log.hours_worked || 0}h</td>
           <td style="padding: 10px;">${(log.completed_tasks_count || 0) + (log.completed_subtasks_count || 0)} items</td>
         </tr>
         <tr style="background: ${bgColor};">
-          <td colspan="5" style="padding: 10px 10px 20px 30px;">
+          <td colspan="6" style="padding: 10px 10px 20px 30px;">
             <div style="margin-bottom: 10px;">
               <strong>Work Description:</strong><br/>
               ${log.work_description || 'N/A'}
@@ -449,28 +464,42 @@ export function AdminWorkLogsViewer() {
       const tasksText = Array.isArray(log.tasks_completed) 
         ? log.tasks_completed.join(', ') 
         : String(log.tasks_completed || '')
+      
+      // Format submission time
+      const submissionTime = log.created_at 
+        ? new Date(log.created_at).toLocaleString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true
+          })
+        : 'N/A'
+      
       return [
         log.user?.full_name || 'Unknown',
         log.user?.department || log.user?.team || 'N/A',
         `${log.hours_worked || 0}h`,
-        (log.work_description || '').substring(0, 40) + ((log.work_description?.length || 0) > 40 ? '...' : ''),
-        tasksText.substring(0, 30) + (tasksText.length > 30 ? '...' : '')
+        submissionTime,
+        (log.work_description || '').substring(0, 35) + ((log.work_description?.length || 0) > 35 ? '...' : ''),
+        tasksText.substring(0, 25) + (tasksText.length > 25 ? '...' : '')
       ]
     })
 
     ;(doc as any).autoTable({
       startY: 58,
-      head: [['Employee', 'Department', 'Hours', 'Work Description', 'Tasks Completed']],
+      head: [['Employee', 'Department', 'Hours', 'Submitted', 'Work Description', 'Tasks']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [37, 99, 235] },
-      styles: { fontSize: 8 },
+      styles: { fontSize: 7 },
       columnStyles: {
-        0: { cellWidth: 30 },
-        1: { cellWidth: 25 },
-        2: { cellWidth: 15 },
-        3: { cellWidth: 50 },
-        4: { cellWidth: 40 }
+        0: { cellWidth: 28 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 12 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 40 },
+        5: { cellWidth: 35 }
       }
     })
 
@@ -488,15 +517,44 @@ export function AdminWorkLogsViewer() {
       doc.text(`Hours Worked: ${log.hours_worked || 0}h`, 14, 34)
       doc.text(`Status: ${log.status || 'N/A'}`, 14, 40)
       
+      // Add submission timestamp
+      if (log.created_at) {
+        const submissionTime = new Date(log.created_at).toLocaleString('en-US', { 
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long', 
+          day: 'numeric',
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true
+        })
+        doc.text(`Submitted: ${submissionTime}`, 14, 46)
+      }
+      
+      // Add update timestamp if different
+      if (log.updated_at && log.updated_at !== log.created_at) {
+        const updateTime = new Date(log.updated_at).toLocaleString('en-US', { 
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long', 
+          day: 'numeric',
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true
+        })
+        doc.text(`Last Updated: ${updateTime}`, 14, 52)
+      }
+      
       // Work Description
       doc.setFontSize(12)
       doc.setTextColor(0)
-      doc.text('Work Description:', 14, 52)
+      let yPos = 65  // Start lower to account for timestamp info
+      doc.text('Work Description:', 14, yPos)
       doc.setFontSize(10)
       const descLines = doc.splitTextToSize(log.work_description || 'No description provided', pageWidth - 28)
-      doc.text(descLines, 14, 60)
+      doc.text(descLines, 14, yPos + 8)
       
-      let yPos = 60 + (descLines.length * 5) + 10
+      yPos = yPos + 8 + (descLines.length * 5) + 10
       
       // Tasks Completed
       if (log.tasks_completed) {
@@ -822,7 +880,42 @@ export function AdminWorkLogsViewer() {
                       <span>•</span>
                       <span className="font-medium text-blue-600">{log.hours_worked || 0} hours</span>
                       <span>•</span>
-                      <span className="text-gray-500">{new Date(log.log_date).toLocaleDateString()}</span>
+                      <span className="text-gray-500">
+                        {new Date(log.log_date).toLocaleDateString('en-US', { 
+                          weekday: 'short', 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        })}
+                      </span>
+                      {log.created_at && (
+                        <>
+                          <span>•</span>
+                          <span className="text-green-600 font-medium">
+                            📝 Submitted: {new Date(log.created_at).toLocaleString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              hour12: true
+                            })}
+                          </span>
+                        </>
+                      )}
+                      {log.updated_at && log.updated_at !== log.created_at && (
+                        <>
+                          <span>•</span>
+                          <span className="text-orange-600 font-medium">
+                            ✏️ Updated: {new Date(log.updated_at).toLocaleString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              hour12: true
+                            })}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
