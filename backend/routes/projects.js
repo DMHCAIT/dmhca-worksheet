@@ -170,11 +170,27 @@ router.get('/:id', authMiddleware, async (req, res) => {
     }
 
     // Check access permissions
-    if (req.user.role !== 'admin' && project.team !== req.user.team) {
-      return res.status(403).json({ 
-        success: false, 
-        error: { code: 'FORBIDDEN', message: 'Access denied' } 
-      });
+    const hasAccess = (
+      req.user.role === 'admin' || 
+      project.team === req.user.team ||
+      project.created_by === req.user.id
+    );
+
+    if (!hasAccess) {
+      // Check if user is a project member
+      const { data: membership } = await supabase
+        .from('project_members')
+        .select('id')
+        .eq('project_id', id)
+        .eq('user_id', req.user.id)
+        .single();
+      
+      if (!membership) {
+        return res.status(403).json({ 
+          success: false, 
+          error: { code: 'FORBIDDEN', message: 'Access denied' } 
+        });
+      }
     }
 
     res.json({ 
@@ -328,11 +344,27 @@ router.get('/:projectId/attachments', authMiddleware, async (req, res) => {
     }
 
     // Check access permissions
-    if (req.user.role !== 'admin' && project.team !== req.user.team) {
-      return res.status(403).json({
-        success: false,
-        error: { code: 'FORBIDDEN', message: 'Access denied' }
-      });
+    const hasAccess = (
+      req.user.role === 'admin' || 
+      project.team === req.user.team ||
+      project.created_by === req.user.id
+    );
+
+    if (!hasAccess) {
+      // Check if user is a project member
+      const { data: membership } = await supabase
+        .from('project_members')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('user_id', req.user.id)
+        .single();
+      
+      if (!membership) {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Access denied' }
+        });
+      }
     }
 
     const { data: attachments, error } = await supabase
@@ -402,11 +434,27 @@ router.post('/:projectId/attachments', authMiddleware, upload.single('file'), as
     }
 
     // Check upload permissions
-    if (req.user.role !== 'admin' && project.team !== req.user.team) {
-      return res.status(403).json({
-        success: false,
-        error: { code: 'FORBIDDEN', message: 'Access denied' }
-      });
+    const hasAccess = (
+      req.user.role === 'admin' || 
+      project.team === req.user.team ||
+      project.created_by === req.user.id
+    );
+
+    if (!hasAccess) {
+      // Check if user is a project member
+      const { data: membership } = await supabase
+        .from('project_members')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('user_id', req.user.id)
+        .single();
+      
+      if (!membership) {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Access denied' }
+        });
+      }
     }
 
     // Upload file to Supabase Storage
@@ -558,11 +606,27 @@ router.get('/:projectId/members', authMiddleware, async (req, res) => {
     }
 
     // Check access permissions
-    if (req.user.role !== 'admin' && project.team !== req.user.team) {
-      return res.status(403).json({
-        success: false,
-        error: { code: 'FORBIDDEN', message: 'Access denied' }
-      });
+    const hasAccess = (
+      req.user.role === 'admin' || 
+      project.team === req.user.team ||
+      project.created_by === req.user.id
+    );
+
+    if (!hasAccess) {
+      // Check if user is a project member
+      const { data: membership } = await supabase
+        .from('project_members')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('user_id', req.user.id)
+        .single();
+      
+      if (!membership) {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Access denied' }
+        });
+      }
     }
 
     // Get project members
