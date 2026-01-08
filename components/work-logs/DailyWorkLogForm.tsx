@@ -283,7 +283,7 @@ export function DailyWorkLogForm() {
             }))}
             onRemoveExisting={handleRemoveExistingFile}
             maxFiles={5}
-            maxSizeMB={50}
+            maxSizeMB={200}
             allowVideos={true}
           />
           <p className="text-xs text-gray-500 mt-1">

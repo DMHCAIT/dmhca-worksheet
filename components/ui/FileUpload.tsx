@@ -17,14 +17,19 @@ interface FileUploadProps {
 export function FileUpload({
   onFilesChange,
   maxFiles = 5,
-  maxSizeMB = 10,
+  maxSizeMB = 100,
   acceptedTypes = [
     'image/*',
+    'video/*',
     'application/pdf',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/x-rar-compressed',
+    'application/x-7z-compressed',
     'text/plain',
     'text/csv',
     '.doc',
@@ -33,7 +38,16 @@ export function FileUpload({
     '.xlsx',
     '.pdf',
     '.txt',
-    '.csv'
+    '.csv',
+    '.zip',
+    '.rar',
+    '.7z',
+    '.mp4',
+    '.avi',
+    '.mov',
+    '.wmv',
+    '.webm',
+    '.mkv'
   ],
   existingFiles = [],
   onRemoveExisting,
@@ -56,6 +70,10 @@ export function FileUpload({
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/zip',
+      'application/x-zip-compressed',
+      'application/x-rar-compressed', 
+      'application/x-7z-compressed',
       'text/plain',
       'text/csv'
     ]
@@ -65,6 +83,7 @@ export function FileUpload({
       '.pdf',
       '.doc', '.docx',
       '.xls', '.xlsx',
+      '.zip', '.rar', '.7z',
       '.txt', '.csv'
     ]
 
@@ -110,9 +129,11 @@ export function FileUpload({
         continue
       }
       
-      // Check file size
-      if (file.size > maxSizeMB * 1024 * 1024) {
-        setError(`File "${file.name}" exceeds ${maxSizeMB}MB limit`)
+      // Check file size (higher limits for archives)
+      const isArchive = ['.zip', '.rar', '.7z'].some(ext => file.name.toLowerCase().endsWith(ext))
+      const sizeLimit = isArchive ? Math.max(maxSizeMB, 200) : maxSizeMB // At least 200MB for archives
+      if (file.size > sizeLimit * 1024 * 1024) {
+        setError(`File "${file.name}" exceeds ${sizeLimit}MB limit`)
         continue
       }
       validFiles.push(file)
@@ -149,6 +170,8 @@ export function FileUpload({
       return '🖼️'
     } else if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', '3gp', 'm4v'].includes(ext || '')) {
       return '🎥'
+    } else if (['zip', 'rar', '7z'].includes(ext || '')) {
+      return '📦'
     } else if (['pdf'].includes(ext || '')) {
       return '📄'
     } else if (['doc', 'docx'].includes(ext || '')) {
@@ -182,7 +205,7 @@ export function FileUpload({
                 Max {maxFiles} files, up to {maxSizeMB}MB each
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                Supported: Images{allowVideos ? ', Videos' : ''}, PDF, Word (.doc/.docx), Excel (.xls/.xlsx), Text, CSV
+                Supported: Images{allowVideos ? ', Videos' : ''}, PDF, Word (.doc/.docx), Excel (.xls/.xlsx), Archives (ZIP/RAR/7z), Text, CSV
               </p>
             </>
           )}

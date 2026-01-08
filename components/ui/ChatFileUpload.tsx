@@ -33,6 +33,8 @@ export function ChatFileUpload({ onFileUpload, senderId, receiverId, disabled }:
     'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'text/plain', 'text/csv',
+    // Archives
+    'application/zip', 'application/x-zip-compressed', 'application/x-rar-compressed', 'application/x-7z-compressed',
     // Additional formats for chat
     'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4'
   ]
@@ -51,6 +53,7 @@ export function ChatFileUpload({ onFileUpload, senderId, receiverId, disabled }:
       '.jpg', '.jpeg', '.png', '.gif', '.webp', // images
       '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.3gp', '.m4v', // videos
       '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv', // documents
+      '.zip', '.rar', '.7z', // archives
       '.mp3', '.wav', '.ogg', '.m4a' // audio
     ]
     
@@ -63,14 +66,18 @@ export function ChatFileUpload({ onFileUpload, senderId, receiverId, disabled }:
 
     // Validate file type
     if (!isFileSupported(file)) {
-      toast.error('File type not supported. Please use images, videos, documents, or audio files.')
+      toast.error('File type not supported. Please use images, videos, documents, archives, or audio files.')
       return
     }
 
-    // Validate file size (50MB limit for videos, 10MB for others)
-    const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 10 * 1024 * 1024
+    // Validate file size with higher limits for archives
+    const isArchive = ['.zip', '.rar', '.7z'].some(ext => file.name.toLowerCase().endsWith(ext))
+    const maxSize = isArchive ? 500 * 1024 * 1024 : // 500MB for archives
+                   file.type.startsWith('video/') ? 100 * 1024 * 1024 : // 100MB for videos
+                   50 * 1024 * 1024 // 50MB for others
+    
     if (file.size > maxSize) {
-      const maxSizeMB = file.type.startsWith('video/') ? 50 : 10
+      const maxSizeMB = isArchive ? 500 : file.type.startsWith('video/') ? 100 : 50
       toast.error(`File size exceeds ${maxSizeMB}MB limit`)
       return
     }
@@ -131,8 +138,12 @@ export function ChatFileUpload({ onFileUpload, senderId, receiverId, disabled }:
   }
 
   const getFileIcon = (file: File) => {
+    const fileName = file.name.toLowerCase()
     if (file.type.startsWith('image/')) return <Image className="w-4 h-4" />
     if (file.type.startsWith('video/')) return <Video className="w-4 h-4" />
+    if (['.zip', '.rar', '.7z'].some(ext => fileName.endsWith(ext))) {
+      return <span className="text-sm">📦</span>
+    }
     return <File className="w-4 h-4" />
   }
 

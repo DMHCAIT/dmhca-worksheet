@@ -46,10 +46,10 @@ const DANGEROUS_EXTENSIONS = [
 // File size limits in bytes
 export const FILE_SIZE_LIMITS = {
   image: 10 * 1024 * 1024, // 10MB for images
-  video: 100 * 1024 * 1024, // 100MB for videos
-  document: 25 * 1024 * 1024, // 25MB for documents
-  archive: 50 * 1024 * 1024, // 50MB for archives
-  default: 10 * 1024 * 1024 // 10MB default
+  video: 200 * 1024 * 1024, // 200MB for videos
+  document: 50 * 1024 * 1024, // 50MB for documents
+  archive: 500 * 1024 * 1024, // 500MB for archives
+  default: 50 * 1024 * 1024 // 50MB default
 } as const
 
 interface FileValidationResult {
@@ -114,11 +114,11 @@ export function validateFileSize(file: File, category: string): { isValid: boole
     case 'video':
       sizeLimit = FILE_SIZE_LIMITS.video
       break
-    case 'document':
-      sizeLimit = FILE_SIZE_LIMITS.document
-      break
     case 'archive':
       sizeLimit = FILE_SIZE_LIMITS.archive
+      break
+    case 'document':
+      sizeLimit = FILE_SIZE_LIMITS.document
       break
     default:
       sizeLimit = FILE_SIZE_LIMITS.default

@@ -131,7 +131,7 @@ export async function deleteChatFile(fileUrlOrPath: string): Promise<void> {
 }
 
 // Helper function to get file type category
-export function getFileTypeCategory(fileName: string, mimeType?: string): 'image' | 'video' | 'document' | 'text' | 'file' {
+export function getFileTypeCategory(fileName: string, mimeType?: string): 'image' | 'video' | 'document' | 'archive' | 'text' | 'file' {
   const ext = fileName.split('.').pop()?.toLowerCase()
   
   // Image types
@@ -144,6 +144,12 @@ export function getFileTypeCategory(fileName: string, mimeType?: string): 'image
   if (['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm', 'm4v', '3gp'].includes(ext || '') || 
       mimeType?.startsWith('video/')) {
     return 'video'
+  }
+  
+  // Archive types
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext || '') || 
+      mimeType?.includes('zip') || mimeType?.includes('rar') || mimeType?.includes('7z')) {
+    return 'archive'
   }
   
   // Document types

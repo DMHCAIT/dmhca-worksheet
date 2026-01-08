@@ -338,9 +338,11 @@ function ChatContent() {
                                   <p className="text-xs mt-1">{msg.file_name}</p>
                                 </div>
                               )}
-                              {(msg.message_type === 'document' || msg.message_type === 'file') && msg.file_url && (
+                              {(msg.message_type === 'document' || msg.message_type === 'file' || msg.message_type === 'archive') && msg.file_url && (
                                 <div className="flex items-center gap-2 p-2 border rounded">
-                                  <span className="text-lg">📎</span>
+                                  <span className="text-lg">
+                                    {msg.message_type === 'archive' ? '📦' : '📎'}
+                                  </span>
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium truncate">{msg.file_name}</p>
                                     <p className="text-xs opacity-70">

@@ -998,7 +998,7 @@ function TasksContent() {
                   <FileUpload
                     onFilesChange={setCreateTaskFiles}
                     maxFiles={5}
-                    maxSizeMB={50}
+                    maxSizeMB={200}
                     allowVideos={true}
                   />
                 </div>
