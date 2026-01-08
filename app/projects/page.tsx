@@ -59,8 +59,6 @@ function ProjectsContent() {
     setSelectedProject(project)
     setShowResourcesModal(true)
   }
-    setShowEditModal(true)
-  }
 
   const handleUpdateProject = async (e: React.FormEvent) => {
     e.preventDefault()
