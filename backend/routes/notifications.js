@@ -7,6 +7,8 @@ const router = express.Router();
 // Get user notifications
 router.get('/', authMiddleware, async (req, res) => {
   try {
+    console.log('📋 GET /api/notifications - User:', req.user?.email);
+    
     const { data: notifications, error } = await supabase
       .from('notifications')
       .select('*')
@@ -14,11 +16,14 @@ router.get('/', authMiddleware, async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (error) {
+      console.error('❌ Notification fetch error:', error);
       return res.status(400).json({ error: error.message });
     }
 
-    res.json(notifications);
+    console.log('✅ Notifications retrieved:', notifications?.length || 0);
+    res.json(notifications || []);
   } catch (error) {
+    console.error('❌ Server error in notifications:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -206,6 +211,34 @@ router.post('/check-new-messages', authMiddleware, async (req, res) => {
       notificationsCreated
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create a test notification
+router.post('/test', authMiddleware, async (req, res) => {
+  try {
+    console.log('🧪 Creating test notification for user:', req.user.id);
+    
+    const testNotification = await createNotification(
+      req.user.id,
+      'test',
+      'Test Notification',
+      'This is a test notification to verify the system is working'
+    );
+    
+    if (testNotification) {
+      console.log('✅ Test notification created:', testNotification);
+      res.json({ 
+        success: true, 
+        notification: testNotification,
+        message: 'Test notification created successfully' 
+      });
+    } else {
+      res.status(400).json({ error: 'Failed to create test notification' });
+    }
+  } catch (error) {
+    console.error('❌ Test notification error:', error);
     res.status(500).json({ error: error.message });
   }
 });

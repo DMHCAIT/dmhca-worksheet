@@ -19,6 +19,13 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
   const markAsRead = useMarkNotificationRead()
   const markAllAsRead = useMarkAllNotificationsRead()
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🔔 NotificationBell mounted')
+    console.log('📊 Notifications data:', notifications)
+    console.log('📈 Unread count:', unreadCount)
+  }, [notifications, unreadCount])
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

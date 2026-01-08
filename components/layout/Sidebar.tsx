@@ -69,7 +69,7 @@ export default function Sidebar() {
         {/* User info */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
+            <div className="flex items-center flex-1">
               <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                 <span className="text-blue-600 font-semibold">
                   {user.full_name.charAt(0).toUpperCase()}
@@ -81,7 +81,9 @@ export default function Sidebar() {
                 <p className="text-xs text-gray-400 capitalize">{user.department || user.team || 'No Department'}</p>
               </div>
             </div>
-            <NotificationBell />
+            <div className="ml-2">
+              <NotificationBell className="flex-shrink-0" />
+            </div>
           </div>
         </div>
 
