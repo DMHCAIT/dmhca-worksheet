@@ -7,7 +7,7 @@ import { useTasks, useCreateTask, useUpdateTask, useDeleteTask, useProjects, use
 import { TableSkeleton } from '@/components/LoadingSkeleton'
 import { ErrorDisplay } from '@/components/ErrorDisplay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { CreateTaskRequest, UpdateTaskRequest, Task, TaskComment, TaskAttachment, ProjectionSubtask } from '@/types'
+import { CreateTaskRequest, UpdateTaskRequest, Task, TaskComment, TaskAttachment, ProjectionSubtask, TaskStatus } from '@/types'
 import { tasksApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { uploadTaskFile, deleteTaskFile } from '@/lib/supabase/client'
@@ -1404,7 +1404,7 @@ function TasksContent() {
                   </label>
                   <select
                     value={editingSubtask.status}
-                    onChange={(e) => setEditingSubtask({ ...editingSubtask, status: e.target.value })}
+                    onChange={(e) => setEditingSubtask({ ...editingSubtask, status: e.target.value as TaskStatus })}
                     className="input"
                     required
                   >
