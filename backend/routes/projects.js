@@ -338,8 +338,16 @@ router.get('/:projectId/attachments', authMiddleware, async (req, res) => {
     const { data: attachments, error } = await supabase
       .from('project_attachments')
       .select(`
-        *,
-        uploader:uploaded_by (
+        id,
+        project_id,
+        file_name,
+        file_url,
+        file_size,
+        file_type,
+        uploaded_by,
+        description,
+        created_at,
+        profiles!project_attachments_uploaded_by_fkey (
           full_name
         )
       `)
@@ -557,30 +565,41 @@ router.get('/:projectId/members', authMiddleware, async (req, res) => {
       });
     }
 
+    // Get project members
     const { data: members, error } = await supabase
       .from('project_members')
-      .select(`
-        *,
-        user:user_id (
-          id,
-          full_name,
-          email,
-          role
-        )
-      `)
+      .select('*')
       .eq('project_id', projectId)
       .order('added_at', { ascending: false });
 
     if (error) {
+      console.error('❌ Error fetching members:', error);
       return res.status(400).json({
         success: false,
         error: { code: 'DATABASE_ERROR', message: error.message }
       });
     }
 
+    // Get user details for each member
+    const membersWithUsers = [];
+    if (members && members.length > 0) {
+      for (const member of members) {
+        const { data: user } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, role')
+          .eq('id', member.user_id)
+          .single();
+        
+        membersWithUsers.push({
+          ...member,
+          user: user || null
+        });
+      }
+    }
+
     res.json({
       success: true,
-      data: members || [],
+      data: membersWithUsers || [],
       message: 'Project members retrieved successfully'
     });
   } catch (error) {
