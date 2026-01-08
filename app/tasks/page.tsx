@@ -192,7 +192,7 @@ function TasksContent() {
 
   const handleViewTask = async (task: Task) => {
     try {
-      const fullTask = await tasksApi.getTask(task.id.toString())
+      const fullTask = await tasksApi.getById(task.id)
       setTaskDetails({
         comments: (fullTask as any).comments || [],
         attachments: (fullTask as any).attachments || []
