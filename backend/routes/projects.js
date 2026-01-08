@@ -616,7 +616,12 @@ router.post('/:projectId/members', authMiddleware, async (req, res) => {
     const { projectId } = req.params;
     const { userId, role = 'member' } = req.body;
 
+    console.log('🎯 POST /api/projects/:projectId/members');
+    console.log('📊 Request data:', { projectId, userId, role, body: req.body });
+    console.log('👤 User:', req.user?.email, 'Role:', req.user?.role);
+
     if (!userId) {
+      console.log('❌ Validation error: userId is missing');
       return res.status(400).json({
         success: false,
         error: { code: 'VALIDATION_ERROR', message: 'userId is required' }
@@ -624,6 +629,7 @@ router.post('/:projectId/members', authMiddleware, async (req, res) => {
     }
 
     // Check if user has access to project
+    console.log('🔍 Checking project access...');
     const { data: project } = await supabase
       .from('projects')
       .select('*')
@@ -631,11 +637,14 @@ router.post('/:projectId/members', authMiddleware, async (req, res) => {
       .single();
 
     if (!project) {
+      console.log('❌ Project not found:', projectId);
       return res.status(404).json({
         success: false,
         error: { code: 'NOT_FOUND', message: 'Project not found' }
       });
     }
+
+    console.log('📋 Project found:', { id: project.id, name: project.name, created_by: project.created_by });
 
     // Check permissions to add members
     if (
@@ -643,6 +652,7 @@ router.post('/:projectId/members', authMiddleware, async (req, res) => {
       req.user.role !== 'team_lead' &&
       project.created_by !== req.user.id
     ) {
+      console.log('❌ Access denied:', { userRole: req.user.role, projectCreatedBy: project.created_by, userId: req.user.id });
       return res.status(403).json({
         success: false,
         error: { code: 'FORBIDDEN', message: 'Access denied' }
@@ -650,6 +660,7 @@ router.post('/:projectId/members', authMiddleware, async (req, res) => {
     }
 
     // Check if user exists
+    console.log('🔍 Checking if user exists:', userId);
     const { data: userExists } = await supabase
       .from('profiles')
       .select('id')
@@ -657,21 +668,28 @@ router.post('/:projectId/members', authMiddleware, async (req, res) => {
       .single();
 
     if (!userExists) {
+      console.log('❌ User not found:', userId);
       return res.status(404).json({
         success: false,
         error: { code: 'NOT_FOUND', message: 'User not found' }
       });
     }
 
+    console.log('✅ User found:', userExists.id);
+
     // Add member
+    console.log('💾 Inserting member record...');
+    const memberData = {
+      project_id: parseInt(projectId),
+      user_id: userId,
+      role: role,
+      added_by: req.user.id,
+    };
+    console.log('📝 Member data:', memberData);
+
     const { data: member, error } = await supabase
       .from('project_members')
-      .insert({
-        project_id: parseInt(projectId),
-        user_id: userId,
-        role: role,
-        added_by: req.user.id,
-      })
+      .insert(memberData)
       .select(`
         *,
         user:user_id (
@@ -684,6 +702,7 @@ router.post('/:projectId/members', authMiddleware, async (req, res) => {
       .single();
 
     if (error) {
+      console.error('❌ Database error inserting member:', error);
       if (error.code === '23505') { // Unique constraint violation
         return res.status(400).json({
           success: false,
@@ -696,12 +715,15 @@ router.post('/:projectId/members', authMiddleware, async (req, res) => {
       });
     }
 
+    console.log('✅ Member added successfully:', member);
+    
     res.status(201).json({
       success: true,
       data: member,
       message: 'Member added successfully'
     });
   } catch (error) {
+    console.error('❌ Server error in add member:', error);
     res.status(500).json({
       success: false,
       error: { code: 'SERVER_ERROR', message: error.message }

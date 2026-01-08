@@ -199,30 +199,53 @@ export function ProjectResources({ projectId, projectName, isOwner }: ProjectRes
 
   // Handle add member
   const handleAddMember = async () => {
-    if (!selectedUser) return
+    if (!selectedUser) {
+      toast.error('Please select a user')
+      return
+    }
+
+    console.log('🎯 Adding member:', { selectedUser, selectedRole, projectId })
 
     try {
       const token = localStorage.getItem('authToken')
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/${projectId}/members`, {
+      if (!token) {
+        toast.error('Authentication required')
+        return
+      }
+
+      console.log('📤 Sending request...')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/${projectId}/members`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          user_id: selectedUser,
+          userId: selectedUser,
           role: selectedRole
         })
       })
 
+      console.log('📬 Response status:', response.status)
+      const responseData = await response.json()
+      console.log('📋 Response data:', responseData)
+
+      if (!response.ok) {
+        const errorMessage = responseData.error?.message || `Failed to add member (${response.status})`
+        console.error('❌ Request failed:', errorMessage)
+        toast.error(errorMessage)
+        return
+      }
+
+      console.log('✅ Member added successfully')
       setSelectedUser('')
       setSelectedRole('member')
       setShowAddMember(false)
       fetchMembers()
       toast.success('Member added successfully')
     } catch (error) {
-      console.error('Add member error:', error)
-      toast.error('Failed to add member')
+      console.error('❌ Add member error:', error)
+      toast.error('Failed to add member: ' + error.message)
     }
   }
 
