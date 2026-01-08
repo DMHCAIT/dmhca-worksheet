@@ -7,36 +7,13 @@ import { useTasks, useCreateTask, useUpdateTask, useDeleteTask, useProjects, use
 import { TableSkeleton } from '@/components/LoadingSkeleton'
 import { ErrorDisplay } from '@/components/ErrorDisplay'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { CreateTaskRequest, UpdateTaskRequest, Task, TaskComment, TaskAttachment } from '@/types'
+import { CreateTaskRequest, UpdateTaskRequest, Task, TaskComment, TaskAttachment, ProjectionSubtask } from '@/types'
 import { tasksApi } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { uploadTaskFile, deleteTaskFile } from '@/lib/supabase/client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileUpload } from '@/components/ui/FileUpload'
-
-interface ProjectionSubtask {
-  id: number
-  title: string
-  description: string
-  status: string
-  priority: string
-  estimated_hours: number
-  actual_hours: number
-  deadline: string
-  projection: {
-    id: number
-    title: string
-    project_name: string
-    start_date: string
-    end_date: string
-    projection_type: string
-  }
-  assigned_user: {
-    id: string
-    full_name: string
-    email: string
-  }
-}
+import SubtaskViewModal from '@/components/SubtaskViewModal'
 
 function TasksContent() {
   const { user } = useAuth()
@@ -45,6 +22,7 @@ function TasksContent() {
   const [viewingTask, setViewingTask] = useState<Task | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [editingSubtask, setEditingSubtask] = useState<ProjectionSubtask | null>(null)
+  const [viewingSubtask, setViewingSubtask] = useState<ProjectionSubtask | null>(null)
   const [filterDepartment, setFilterDepartment] = useState<string>('')
   const [filterAssignee, setFilterAssignee] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
@@ -875,12 +853,20 @@ function TasksContent() {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => setEditingSubtask(subtask)}
-                        className="text-blue-600 hover:text-blue-900 text-sm font-medium"
-                      >
-                        Update
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setViewingSubtask(subtask)}
+                          className="text-green-600 hover:text-green-900 text-sm font-medium"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => setEditingSubtask(subtask)}
+                          className="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                        >
+                          Update
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1379,6 +1365,18 @@ function TasksContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* View Subtask Modal */}
+      {viewingSubtask && (
+        <SubtaskViewModal
+          subtask={viewingSubtask}
+          onClose={() => setViewingSubtask(null)}
+          onEdit={(subtask) => {
+            setViewingSubtask(null)
+            setEditingSubtask(subtask)
+          }}
+        />
       )}
 
       {/* Edit Subtask Modal */}

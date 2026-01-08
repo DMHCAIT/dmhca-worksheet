@@ -246,4 +246,192 @@ router.get('/my-subtasks', authMiddleware, async (req, res) => {
   }
 });
 
+// Get comments for a subtask
+router.get('/subtasks/:id/comments', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log('💬 GET /subtasks/:id/comments - Subtask ID:', id, 'User:', req.user.email);
+
+    const { data: comments, error } = await supabase
+      .from('projection_subtask_comments')
+      .select(`
+        *,
+        user:profiles!user_id(id, full_name, email, avatar_url)
+      `)
+      .eq('subtask_id', id)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('❌ Error fetching subtask comments:', error);
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'DATABASE_ERROR', message: error.message } 
+      });
+    }
+
+    console.log('✅ Subtask comments retrieved:', comments?.length || 0);
+    
+    res.json({ 
+      success: true,
+      data: comments || [],
+      message: 'Subtask comments retrieved successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Server error fetching subtask comments:', error);
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Add a comment to a subtask
+router.post('/subtasks/:id/comments', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment } = req.body;
+
+    if (!comment || comment.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Comment cannot be empty' }
+      });
+    }
+
+    console.log('💬 POST /subtasks/:id/comments - Subtask ID:', id, 'User:', req.user.email);
+
+    const { data: newComment, error } = await supabase
+      .from('projection_subtask_comments')
+      .insert({
+        subtask_id: id,
+        user_id: req.user.id,
+        comment: comment.trim()
+      })
+      .select(`
+        *,
+        user:profiles!user_id(id, full_name, email, avatar_url)
+      `)
+      .single();
+
+    if (error) {
+      console.error('❌ Error creating subtask comment:', error);
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'CREATE_ERROR', message: error.message } 
+      });
+    }
+
+    console.log('✅ Subtask comment created:', newComment.id);
+
+    res.status(201).json({ 
+      success: true,
+      data: newComment,
+      message: 'Comment added successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Server error creating subtask comment:', error);
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Update a subtask comment
+router.put('/subtasks/:id/comments/:commentId', authMiddleware, async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+    const { comment } = req.body;
+
+    if (!comment || comment.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Comment cannot be empty' }
+      });
+    }
+
+    console.log('💬 PUT /subtasks/:id/comments/:commentId - Comment ID:', commentId, 'User:', req.user.email);
+
+    const { data: updatedComment, error } = await supabase
+      .from('projection_subtask_comments')
+      .update({
+        comment: comment.trim(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', commentId)
+      .eq('subtask_id', id)
+      .select(`
+        *,
+        user:profiles!user_id(id, full_name, email, avatar_url)
+      `)
+      .single();
+
+    if (error) {
+      console.error('❌ Error updating subtask comment:', error);
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'UPDATE_ERROR', message: error.message } 
+      });
+    }
+
+    if (!updatedComment) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Comment not found or permission denied' }
+      });
+    }
+
+    console.log('✅ Subtask comment updated:', updatedComment.id);
+
+    res.json({ 
+      success: true,
+      data: updatedComment,
+      message: 'Comment updated successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Server error updating subtask comment:', error);
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
+// Delete a subtask comment
+router.delete('/subtasks/:id/comments/:commentId', authMiddleware, async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+
+    console.log('💬 DELETE /subtasks/:id/comments/:commentId - Comment ID:', commentId, 'User:', req.user.email);
+
+    const { error } = await supabase
+      .from('projection_subtask_comments')
+      .delete()
+      .eq('id', commentId)
+      .eq('subtask_id', id);
+
+    if (error) {
+      console.error('❌ Error deleting subtask comment:', error);
+      return res.status(400).json({ 
+        success: false,
+        error: { code: 'DELETE_ERROR', message: error.message } 
+      });
+    }
+
+    console.log('✅ Subtask comment deleted:', commentId);
+
+    res.json({ 
+      success: true,
+      message: 'Comment deleted successfully' 
+    });
+  } catch (error) {
+    console.error('❌ Server error deleting subtask comment:', error);
+    res.status(500).json({ 
+      success: false,
+      error: { code: 'SERVER_ERROR', message: error.message } 
+    });
+  }
+});
+
 module.exports = router;

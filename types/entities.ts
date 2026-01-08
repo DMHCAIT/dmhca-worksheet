@@ -61,7 +61,30 @@ export interface TaskComment {
   user_id: string
   comment: string
   created_at: string
+  updated_at?: string
   user_name?: string
+  user?: {
+    id: string
+    full_name: string
+    email: string
+    avatar_url?: string
+  }
+}
+
+export interface SubtaskComment {
+  id: number
+  subtask_id: number
+  user_id: string
+  comment: string
+  created_at: string
+  updated_at?: string
+  user_name?: string
+  user?: {
+    id: string
+    full_name: string
+    email: string
+    avatar_url?: string
+  }
 }
 
 export interface TaskAttachment {
@@ -126,4 +149,40 @@ export interface WorkProjection {
   created_at: string
   project?: { name: string }
   user?: { full_name: string }
+}
+
+export interface ProjectionSubtask {
+  id: number
+  projection_id: number
+  title: string
+  description?: string
+  status: TaskStatus
+  priority: TaskPriority
+  estimated_hours?: number
+  actual_hours?: number
+  deadline?: string
+  assigned_to: string
+  created_by: string
+  created_at: string
+  updated_at: string
+  completed_at?: string
+  projection?: {
+    id: number
+    title: string
+    project_name: string
+    start_date: string
+    end_date: string
+    projection_type: string
+  }
+  assigned_user?: {
+    id: string
+    full_name: string
+    email: string
+    avatar_url?: string
+  }
+  creator?: {
+    id: string
+    full_name: string
+    email: string
+  }
 }
