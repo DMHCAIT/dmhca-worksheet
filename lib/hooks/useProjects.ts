@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query'
-import { projectsApi } from '@/lib/api'
+import { projectsApi } from '@/lib/api/projects'
 import { Project, CreateProjectRequest, UpdateProjectRequest } from '@/types'
 import toast from 'react-hot-toast'
 
