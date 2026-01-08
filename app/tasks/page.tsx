@@ -300,12 +300,12 @@ function TasksContent() {
     try {
       // Upload file to Supabase storage
       toast('Uploading file...', { duration: 2000 })
-      const fileUrl = await uploadTaskFile(file, viewingTask.id.toString())
+      const uploadResult = await uploadTaskFile(file, viewingTask.id)
       
       // Add attachment record to database
       const attachment = await tasksApi.addAttachment(viewingTask.id, {
         file_name: file.name,
-        file_url: fileUrl,
+        file_url: uploadResult.url,
         file_size: file.size
       })
       
