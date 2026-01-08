@@ -144,6 +144,24 @@ router.post('/', authMiddleware, async (req, res) => {
       });
     }
 
+    // Create notification for the assigned user (if not self-assigned)
+    if (assigned_to && assigned_to !== req.user.id) {
+      try {
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: assigned_to,
+            type: 'task_assigned',
+            title: 'New Task Assigned',
+            message: `You have been assigned a new task: "${title}"`,
+            is_read: false
+          });
+      } catch (notificationError) {
+        console.error('Failed to create notification:', notificationError);
+        // Don't fail the task creation if notification fails
+      }
+    }
+
     res.status(201).json({ 
       success: true, 
       data: task, 

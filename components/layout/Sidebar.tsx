@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth/AuthProvider'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { LogOut, Menu } from 'lucide-react'
+import NotificationBell from '@/components/ui/NotificationBell'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: '🏠', roles: ['admin', 'manager', 'team_lead', 'employee'] },
@@ -67,17 +68,20 @@ export default function Sidebar() {
 
         {/* User info */}
         <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <span className="text-blue-600 font-semibold">
-                {user.full_name.charAt(0).toUpperCase()}
-              </span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-blue-600 font-semibold">
+                  {user.full_name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-900">{user.full_name}</p>
+                <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                <p className="text-xs text-gray-400 capitalize">{user.department || user.team || 'No Department'}</p>
+              </div>
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">{user.full_name}</p>
-              <p className="text-xs text-gray-500 capitalize">{user.role}</p>
-              <p className="text-xs text-gray-400 capitalize">{user.department || user.team || 'No Department'}</p>
-            </div>
+            <NotificationBell />
           </div>
         </div>
 
