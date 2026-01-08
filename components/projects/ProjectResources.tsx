@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { FileUpload } from '@/components/ui/FileUpload'
-import { uploadProjectFile, deleteProjectFile } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { 
   Upload, 
@@ -144,23 +143,24 @@ export function ProjectResources({ projectId, projectName, isOwner }: ProjectRes
       const token = localStorage.getItem('authToken')
       
       for (const file of selectedFiles) {
-        // Upload file to storage
-        const { url } = await uploadProjectFile(file, projectId, user?.id || '')
+        // Create FormData for multipart upload
+        const formData = new FormData()
+        formData.append('file', file)
         
-        // Save attachment to database
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/${projectId}/attachments`, {
+        // Upload via backend API which handles both storage and database
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/${projectId}/attachments`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            // Don't set Content-Type - let browser set it with boundary for FormData
           },
-          body: JSON.stringify({
-            file_name: file.name,
-            file_url: url,
-            file_size: file.size,
-            file_type: file.type
-          })
+          body: formData
         })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error?.message || 'Failed to upload file')
+        }
       }
 
       setSelectedFiles([])
@@ -168,7 +168,7 @@ export function ProjectResources({ projectId, projectName, isOwner }: ProjectRes
       toast.success('Files uploaded successfully')
     } catch (error) {
       console.error('Upload error:', error)
-      toast.error('Failed to upload files')
+      toast.error(`Failed to upload files: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
@@ -178,7 +178,7 @@ export function ProjectResources({ projectId, projectName, isOwner }: ProjectRes
   const handleDeleteAttachment = async (attachment: ProjectAttachment) => {
     try {
       const token = localStorage.getItem('authToken')
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/${projectId}/attachments/${attachment.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects/${projectId}/attachments/${attachment.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -186,14 +186,16 @@ export function ProjectResources({ projectId, projectName, isOwner }: ProjectRes
         },
       })
 
-      // Delete from storage
-      await deleteProjectFile(attachment.file_url)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error?.message || 'Failed to delete file')
+      }
       
       fetchAttachments()
       toast.success('File deleted successfully')
     } catch (error) {
       console.error('Delete error:', error)
-      toast.error('Failed to delete file')
+      toast.error(`Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 

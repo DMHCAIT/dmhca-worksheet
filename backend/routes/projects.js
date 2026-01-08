@@ -412,7 +412,12 @@ router.post('/:projectId/attachments', authMiddleware, upload.single('file'), as
     const { projectId } = req.params;
     const file = req.file;
 
+    console.log('🎯 POST /api/projects/:projectId/attachments');
+    console.log('📊 Upload request:', { projectId, hasFile: !!file, fileName: file?.originalname });
+    console.log('👤 User:', req.user?.email, 'Role:', req.user?.role);
+
     if (!file) {
+      console.log('❌ No file provided');
       return res.status(400).json({
         success: false,
         error: { code: 'VALIDATION_ERROR', message: 'No file provided' }
@@ -420,6 +425,7 @@ router.post('/:projectId/attachments', authMiddleware, upload.single('file'), as
     }
 
     // Check if user has access to project
+    console.log('🔍 Checking project access...');
     const { data: project } = await supabase
       .from('projects')
       .select('*')
