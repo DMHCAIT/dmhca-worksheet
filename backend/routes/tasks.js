@@ -154,10 +154,14 @@ router.post('/', authMiddleware, async (req, res) => {
             type: 'task_assigned',
             title: 'New Task Assigned',
             message: `You have been assigned a new task: "${title}"`,
+            related_id: task.id,
+            related_type: 'task',
             is_read: false
           });
+        
+        console.log('✅ Task assignment notification created');
       } catch (notificationError) {
-        console.error('Failed to create notification:', notificationError);
+        console.error('Failed to create task assignment notification:', notificationError);
         // Don't fail the task creation if notification fails
       }
     }
@@ -219,6 +223,87 @@ router.put('/:id', authMiddleware, async (req, res) => {
         success: false, 
         error: { code: 'DATABASE_ERROR', message: error.message } 
       });
+    }
+
+    // Create notifications for task updates
+    try {
+      // Collect participants to notify
+      const participants = new Set();
+      
+      if (existingTask.assigned_to && existingTask.assigned_to !== req.user.id) {
+        participants.add(existingTask.assigned_to);
+      }
+      if (existingTask.created_by && existingTask.created_by !== req.user.id) {
+        participants.add(existingTask.created_by);
+      }
+
+      // Check for status change and create appropriate notifications
+      if (status && status !== existingTask.status) {
+        let notificationType = 'task_updated';
+        let notificationTitle = 'Task Updated';
+        let notificationMessage = `Task "${existingTask.title}" status changed to: ${status}`;
+
+        if (status === 'completed') {
+          notificationType = 'task_completed';
+          notificationTitle = 'Task Completed';
+          notificationMessage = `Task "${existingTask.title}" has been completed by ${req.user.full_name}`;
+        } else if (status === 'in_progress') {
+          notificationMessage = `Task "${existingTask.title}" is now in progress`;
+        }
+
+        // Create notifications for participants
+        for (const userId of participants) {
+          await supabase
+            .from('notifications')
+            .insert({
+              user_id: userId,
+              type: notificationType,
+              title: notificationTitle,
+              message: notificationMessage,
+              related_id: id,
+              related_type: 'task',
+              is_read: false
+            });
+        }
+      }
+
+      // Check for assignment change
+      if (assigned_to && assigned_to !== existingTask.assigned_to) {
+        // Notify new assignee
+        if (assigned_to !== req.user.id) {
+          await supabase
+            .from('notifications')
+            .insert({
+              user_id: assigned_to,
+              type: 'task_assigned',
+              title: 'Task Reassigned',
+              message: `You have been assigned task: "${existingTask.title}"`,
+              related_id: id,
+              related_type: 'task',
+              is_read: false
+            });
+        }
+
+        // Notify old assignee (if different from updater)
+        if (existingTask.assigned_to && existingTask.assigned_to !== req.user.id && existingTask.assigned_to !== assigned_to) {
+          await supabase
+            .from('notifications')
+            .insert({
+              user_id: existingTask.assigned_to,
+              type: 'task_updated',
+              title: 'Task Reassigned',
+              message: `Task "${existingTask.title}" has been reassigned`,
+              related_id: id,
+              related_type: 'task',
+              is_read: false
+            });
+        }
+      }
+
+      console.log('✅ Task update notifications created');
+    } catch (notificationError) {
+      console.error('Failed to create task update notifications:', notificationError);
+      // Don't fail the task update if notification fails
     }
 
     res.json({ 

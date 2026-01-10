@@ -82,10 +82,18 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
         return '📋'
       case 'task_completed':
         return '✅'
+      case 'task_updated':
+        return '🔄'
+      case 'comment_added':
+        return '💬'
+      case 'review_written':
+        return '📝'
       case 'chat_message':
         return '💬'
       case 'project_update':
         return '📊'
+      case 'test':
+        return '🧪'
       default:
         return '🔔'
     }
@@ -132,7 +140,7 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
 
       {/* Notification Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+        <div className="absolute right-0 mt-2 w-96 max-w-sm bg-white border border-gray-200 rounded-lg shadow-lg z-50">
           {/* Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
@@ -141,7 +149,7 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
                 {/* Test button for debugging */}
                 <button
                   onClick={handleCreateTestNotification}
-                  className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                  className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors"
                   title="Create test notification"
                 >
                   Test
@@ -216,29 +224,70 @@ interface NotificationItemProps {
 }
 
 function NotificationItem({ notification, onMarkAsRead, formatTime, getIcon }: NotificationItemProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const isLongMessage = notification.message.length > 100
+
   return (
     <div
-      className={`p-4 hover:bg-gray-50 cursor-pointer ${
+      className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
         !notification.is_read ? 'bg-blue-50 border-l-4 border-blue-400' : ''
       }`}
+      onClick={() => isLongMessage && setIsExpanded(!isExpanded)}
     >
       <div className="flex items-start gap-3">
-        <span className="text-lg">{getIcon(notification.type)}</span>
+        <span className="text-lg flex-shrink-0">{getIcon(notification.type)}</span>
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-medium text-gray-900 truncate">
+          <h4 className="text-sm font-medium text-gray-900 mb-1">
             {notification.title}
           </h4>
-          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-            {notification.message}
-          </p>
-          <p className="text-xs text-gray-400 mt-2">
-            {formatTime(notification.created_at)}
+          <div className="text-sm text-gray-600">
+            {isLongMessage && !isExpanded ? (
+              <>
+                <p className="mb-1">
+                  {notification.message.substring(0, 80)}...
+                </p>
+                <button 
+                  className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsExpanded(true)
+                  }}
+                >
+                  Show more
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="whitespace-pre-wrap break-words">
+                  {notification.message}
+                </p>
+                {isLongMessage && isExpanded && (
+                  <button 
+                    className="text-blue-600 hover:text-blue-800 text-xs font-medium mt-1"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsExpanded(false)
+                    }}
+                  >
+                    Show less
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-2 flex items-center justify-between">
+            <span>{formatTime(notification.created_at)}</span>
+            {notification.related_type && notification.related_id && (
+              <span className="text-gray-500 text-xs">
+                {notification.related_type} #{notification.related_id}
+              </span>
+            )}
           </p>
         </div>
         {!notification.is_read && (
           <button
             onClick={(e) => onMarkAsRead(notification.id, e)}
-            className="text-blue-600 hover:text-blue-800 p-1"
+            className="text-blue-600 hover:text-blue-800 p-1 flex-shrink-0 transition-colors"
             title="Mark as read"
           >
             <Check className="w-4 h-4" />

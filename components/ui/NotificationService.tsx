@@ -1,16 +1,72 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAuth } from '@/lib/auth/AuthProvider'
+import { useQueryClient } from '@tanstack/react-query'
+import { notificationKeys } from '@/lib/hooks/useNotifications'
 import toast from 'react-hot-toast'
 
 export default function NotificationService() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const lastNotificationCheck = useRef<Date>(new Date())
 
   useEffect(() => {
     if (!user) return
 
-    // Check for overdue tasks every 30 minutes
+    // Check for new notifications more frequently
+    const checkNotifications = async () => {
+      try {
+        console.log('🔍 Checking for new notifications...')
+        
+        // Get notifications created since last check
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/notifications?since=${lastNotificationCheck.current.toISOString()}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+
+        if (response.ok) {
+          const notifications = await response.json()
+          
+          if (notifications.length > 0) {
+            console.log('✅ Found new notifications:', notifications.length)
+            
+            // Show toast for new notifications
+            notifications.forEach((notification: any) => {
+              const icon = getNotificationIcon(notification.type)
+              
+              if (notification.type === 'task_overdue') {
+                toast.error(notification.message, {
+                  duration: 5000,
+                  icon: icon,
+                })
+              } else {
+                toast(notification.message, {
+                  duration: 4000,
+                  icon: icon,
+                })
+              }
+            })
+
+            // Refresh the notification data
+            queryClient.invalidateQueries({ queryKey: notificationKeys.all })
+          }
+        } else if (response.status !== 304) {
+          console.error('❌ Notification check failed:', response.status, response.statusText)
+        }
+        
+        lastNotificationCheck.current = new Date()
+      } catch (error) {
+        console.error('Error checking notifications:', error)
+      }
+    }
+
+    // Check for overdue tasks every 5 minutes
     const checkOverdueTasks = async () => {
       try {
         console.log('🔍 Checking overdue tasks...')
@@ -30,16 +86,15 @@ export default function NotificationService() {
               duration: 5000,
               icon: '⚠️',
             })
+            queryClient.invalidateQueries({ queryKey: notificationKeys.all })
           }
-        } else {
-          console.error('❌ Overdue tasks check failed:', response.status, response.statusText)
         }
       } catch (error) {
         console.error('Error checking overdue tasks:', error)
       }
     }
 
-    // Check for new chat messages every 2 minutes
+    // Check for new chat messages every 30 seconds
     const checkNewMessages = async () => {
       try {
         console.log('💬 Checking new messages...')
@@ -59,12 +114,26 @@ export default function NotificationService() {
               duration: 4000,
               icon: '💬',
             })
+            queryClient.invalidateQueries({ queryKey: notificationKeys.all })
           }
-        } else {
-          console.error('❌ New messages check failed:', response.status, response.statusText)
         }
       } catch (error) {
         console.error('Error checking new messages:', error)
+      }
+    }
+
+    // Helper function to get notification icon
+    const getNotificationIcon = (type: string) => {
+      switch (type) {
+        case 'task_overdue': return '⚠️'
+        case 'task_assigned': return '📋'
+        case 'task_completed': return '✅'
+        case 'task_updated': return '🔄'
+        case 'comment_added': return '💬'
+        case 'review_written': return '📝'
+        case 'chat_message': return '💬'
+        case 'project_update': return '📊'
+        default: return '🔔'
       }
     }
 
@@ -73,21 +142,24 @@ export default function NotificationService() {
       console.log('🚀 Starting notification service for user:', user?.full_name)
       checkOverdueTasks()
       checkNewMessages()
-    }, 5000) // 5 seconds after mount
+      checkNotifications()
+    }, 2000) // 2 seconds after mount
 
-    // Set up intervals
-    const overdueInterval = setInterval(checkOverdueTasks, 5 * 60 * 1000) // Every 5 minutes for testing
-    const messageInterval = setInterval(checkNewMessages, 2 * 60 * 1000) // Every 2 minutes
+    // Set up intervals for different types of checks
+    const notificationInterval = setInterval(checkNotifications, 10000) // Every 10 seconds
+    const overdueInterval = setInterval(checkOverdueTasks, 5 * 60 * 1000) // Every 5 minutes
+    const messageInterval = setInterval(checkNewMessages, 30 * 1000) // Every 30 seconds
 
     console.log('⏰ Notification intervals set up')
 
     return () => {
       clearTimeout(initialDelay)
+      clearInterval(notificationInterval)
       clearInterval(overdueInterval)
       clearInterval(messageInterval)
       console.log('🛑 Notification service cleanup')
     }
-  }, [user])
+  }, [user, queryClient])
 
   // This component doesn't render anything
   return null

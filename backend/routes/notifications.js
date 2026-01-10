@@ -1,6 +1,7 @@
 const express = require('express');
 const supabase = require('../config/supabase');
 const { authMiddleware } = require('../middleware/auth');
+const { sendNotificationToUser } = require('./sse');
 
 const router = express.Router();
 
@@ -9,11 +10,19 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     console.log('📋 GET /api/notifications - User:', req.user?.email);
     
-    const { data: notifications, error } = await supabase
+    let query = supabase
       .from('notifications')
       .select('*')
       .eq('user_id', req.user.id)
       .order('created_at', { ascending: false });
+
+    // If 'since' parameter is provided, filter notifications created after that timestamp
+    if (req.query.since) {
+      query = query.gt('created_at', req.query.since);
+      console.log('📅 Filtering notifications since:', req.query.since);
+    }
+
+    const { data: notifications, error } = await query;
 
     if (error) {
       console.error('❌ Notification fetch error:', error);
@@ -21,6 +30,12 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 
     console.log('✅ Notifications retrieved:', notifications?.length || 0);
+    
+    // If 'since' was provided and no new notifications, return 304 Not Modified
+    if (req.query.since && (!notifications || notifications.length === 0)) {
+      return res.status(304).end();
+    }
+
     res.json(notifications || []);
   } catch (error) {
     console.error('❌ Server error in notifications:', error);
@@ -71,27 +86,101 @@ router.put('/read-all', authMiddleware, async (req, res) => {
   }
 });
 
-// Create notification (internal function)
-async function createNotification(userId, type, title, message) {
-  const { data, error } = await supabase
-    .from('notifications')
-    .insert({
-      user_id: userId,
-      type,
-      title,
-      message,
-      is_read: false
-    })
-    .select()
-    .single();
+// Enhanced notification creation with better error handling
+async function createNotification(userId, type, title, message, relatedId = null, relatedType = null) {
+  try {
+    console.log(`🔔 Creating notification: ${type} for user ${userId}`);
+    
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        type,
+        title,
+        message,
+        related_id: relatedId,
+        related_type: relatedType,
+        is_read: false
+      })
+      .select()
+      .single();
 
-  if (error) {
-    console.error('Error creating notification:', error);
+    if (error) {
+      console.error('❌ Error creating notification:', error);
+      return null;
+    }
+
+    console.log('✅ Notification created successfully:', data.id);
+    
+    // Send real-time notification via SSE
+    try {
+      const sent = sendNotificationToUser(userId, data);
+      if (sent) {
+        console.log('🌊 Real-time notification sent via SSE');
+      }
+    } catch (sseError) {
+      console.error('⚠️ SSE delivery failed (user may not be connected):', sseError.message);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('❌ Notification creation failed:', error);
     return null;
   }
-
-  return data;
 }
+
+// Notify all users involved in a task (assignee, creator, commenters)
+async function notifyTaskParticipants(taskId, excludeUserId, type, title, message) {
+  try {
+    // Get task details and participants
+    const { data: task } = await supabase
+      .from('tasks')
+      .select('assigned_to, created_by')
+      .eq('id', taskId)
+      .single();
+
+    if (!task) return;
+
+    // Get unique commenters
+    const { data: comments } = await supabase
+      .from('task_comments')
+      .select('user_id')
+      .eq('task_id', taskId);
+
+    // Collect all unique participants
+    const participants = new Set();
+    if (task.assigned_to && task.assigned_to !== excludeUserId) {
+      participants.add(task.assigned_to);
+    }
+    if (task.created_by && task.created_by !== excludeUserId) {
+      participants.add(task.created_by);
+    }
+    if (comments) {
+      comments.forEach(comment => {
+        if (comment.user_id !== excludeUserId) {
+          participants.add(comment.user_id);
+        }
+      });
+    }
+
+    // Create notifications for all participants
+    const notifications = [];
+    for (const userId of participants) {
+      const notification = await createNotification(userId, type, title, message, taskId, 'task');
+      if (notification) notifications.push(notification);
+    }
+
+    console.log(`📨 Created ${notifications.length} notifications for task ${taskId}`);
+    return notifications;
+  } catch (error) {
+    console.error('❌ Error notifying task participants:', error);
+    return [];
+  }
+}
+
+// Export notification helpers for use in other routes
+module.exports.createNotification = createNotification;
+module.exports.notifyTaskParticipants = notifyTaskParticipants;
 
 // Check for overdue tasks and create notifications
 router.post('/check-overdue-tasks', authMiddleware, async (req, res) => {
@@ -210,6 +299,87 @@ router.post('/check-new-messages', authMiddleware, async (req, res) => {
       unreadMessages: unreadMessages.length,
       notificationsCreated
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create notification for task creation
+router.post('/task-created', authMiddleware, async (req, res) => {
+  try {
+    const { taskId, assignedTo, taskTitle } = req.body;
+    
+    if (assignedTo && assignedTo !== req.user.id) {
+      const notification = await createNotification(
+        assignedTo,
+        'task_assigned',
+        'New Task Assigned',
+        `You have been assigned a new task: "${taskTitle}"`,
+        taskId,
+        'task'
+      );
+      
+      res.json({ success: true, notification });
+    } else {
+      res.json({ success: true, message: 'No notification needed' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create notification for comments
+router.post('/comment-added', authMiddleware, async (req, res) => {
+  try {
+    const { taskId, taskTitle, commentText } = req.body;
+    
+    const notifications = await notifyTaskParticipants(
+      taskId,
+      req.user.id,
+      'comment_added',
+      'New Comment on Task',
+      `${req.user.full_name} commented on "${taskTitle}": ${commentText.substring(0, 50)}...`
+    );
+    
+    res.json({ success: true, notifications });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create notification for task status updates
+router.post('/task-updated', authMiddleware, async (req, res) => {
+  try {
+    const { taskId, taskTitle, updateType, newStatus } = req.body;
+    
+    let message = '';
+    let notificationType = 'task_updated';
+    
+    switch (updateType) {
+      case 'status':
+        message = `Task "${taskTitle}" status updated to: ${newStatus}`;
+        if (newStatus === 'completed') {
+          notificationType = 'task_completed';
+          message = `Task "${taskTitle}" has been completed`;
+        }
+        break;
+      case 'review':
+        notificationType = 'review_written';
+        message = `${req.user.full_name} wrote a review for task "${taskTitle}"`;
+        break;
+      default:
+        message = `Task "${taskTitle}" has been updated`;
+    }
+    
+    const notifications = await notifyTaskParticipants(
+      taskId,
+      req.user.id,
+      notificationType,
+      'Task Update',
+      message
+    );
+    
+    res.json({ success: true, notifications });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

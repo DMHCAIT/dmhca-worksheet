@@ -98,13 +98,26 @@ export interface TaskAttachment {
   uploader_name?: string
 }
 
+export type NotificationType = 
+  | 'task_assigned' 
+  | 'task_completed' 
+  | 'task_updated' 
+  | 'task_overdue'
+  | 'comment_added'
+  | 'review_written'
+  | 'chat_message'
+  | 'project_update'
+  | 'test'
+
 export interface Notification {
   id: number
   user_id: string
-  type: string
+  type: NotificationType
   title: string
   message: string
   is_read: boolean
+  related_id?: number | null
+  related_type?: string | null
   created_at: string
 }
 

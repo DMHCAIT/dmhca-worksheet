@@ -13,8 +13,9 @@ export function useNotifications() {
   return useQuery<Notification[], Error>({
     queryKey: notificationKeys.all,
     queryFn: () => notificationsApi.getNotifications(),
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 5 * 1000, // Consider data stale after 5 seconds
+    refetchInterval: 15000, // Refetch every 15 seconds for real-time feel
+    staleTime: 2 * 1000, // Consider data stale after 2 seconds
+    refetchIntervalInBackground: true, // Continue refetching when tab is not active
   })
 }
 

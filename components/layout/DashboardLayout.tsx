@@ -3,6 +3,7 @@
 import { useAuth } from '@/lib/auth/AuthProvider'
 import Sidebar from './Sidebar'
 import NotificationService from '@/components/ui/NotificationService'
+import RealTimeNotificationService from '@/components/ui/RealTimeNotificationService'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -22,6 +23,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       <NotificationService />
+      <RealTimeNotificationService />
       <Sidebar />
       <div className="lg:pl-64">
         <main className="py-10">
