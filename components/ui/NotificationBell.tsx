@@ -19,11 +19,18 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
   const markAsRead = useMarkNotificationRead()
   const markAllAsRead = useMarkAllNotificationsRead()
 
-  // Debug logging
+  // Debug logging and browser notification permission
   useEffect(() => {
     console.log('🔔 NotificationBell mounted')
     console.log('📊 Notifications data:', notifications)
     console.log('📈 Unread count:', unreadCount)
+    
+    // Request browser notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        console.log('🔔 Browser notification permission:', permission)
+      })
+    }
   }, [notifications, unreadCount])
 
   // Close dropdown when clicking outside
@@ -140,7 +147,7 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
 
       {/* Notification Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 max-w-sm bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+        <div className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-white border border-gray-200 rounded-lg shadow-xl z-50 transform transition-all duration-200">
           {/* Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">

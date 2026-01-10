@@ -51,6 +51,35 @@ export default function NotificationService() {
                   icon: icon,
                 })
               }
+
+              // Show Chrome browser notification if permission is granted
+              if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                  const browserNotification = new Notification(notification.title, {
+                    body: notification.message,
+                    icon: '/favicon.ico',
+                    badge: '/favicon.ico',
+                    tag: `dmhca-poll-${notification.id}`,
+                    requireInteraction: notification.type === 'task_overdue',
+                    silent: false,
+                    timestamp: Date.now()
+                  })
+
+                  // Auto-close notification after 5 seconds (except overdue tasks)
+                  if (notification.type !== 'task_overdue') {
+                    setTimeout(() => {
+                      browserNotification.close()
+                    }, 5000)
+                  }
+
+                  browserNotification.onclick = () => {
+                    window.focus()
+                    browserNotification.close()
+                  }
+                } catch (error) {
+                  console.error('❌ Failed to show browser notification:', error)
+                }
+              }
             })
 
             // Refresh the notification data
@@ -86,6 +115,29 @@ export default function NotificationService() {
               duration: 5000,
               icon: '⚠️',
             })
+            
+            // Show Chrome browser notification for overdue tasks
+            if ('Notification' in window && Notification.permission === 'granted') {
+              try {
+                const browserNotification = new Notification('Overdue Tasks Alert', {
+                  body: `You have ${result.notificationsCreated} overdue task${result.notificationsCreated > 1 ? 's' : ''}!`,
+                  icon: '/favicon.ico',
+                  badge: '/favicon.ico',
+                  tag: 'dmhca-overdue-tasks',
+                  requireInteraction: true, // Keep visible until clicked
+                  silent: false,
+                  timestamp: Date.now()
+                })
+                
+                browserNotification.onclick = () => {
+                  window.focus()
+                  browserNotification.close()
+                }
+              } catch (error) {
+                console.error('❌ Failed to show overdue browser notification:', error)
+              }
+            }
+            
             queryClient.invalidateQueries({ queryKey: notificationKeys.all })
           }
         }
@@ -114,6 +166,34 @@ export default function NotificationService() {
               duration: 4000,
               icon: '💬',
             })
+            
+            // Show Chrome browser notification for new messages
+            if ('Notification' in window && Notification.permission === 'granted') {
+              try {
+                const browserNotification = new Notification('New Messages', {
+                  body: `You have ${result.notificationsCreated} new message${result.notificationsCreated > 1 ? 's' : ''}!`,
+                  icon: '/favicon.ico',
+                  badge: '/favicon.ico',
+                  tag: 'dmhca-new-messages',
+                  requireInteraction: false,
+                  silent: false,
+                  timestamp: Date.now()
+                })
+                
+                // Auto-close after 5 seconds
+                setTimeout(() => {
+                  browserNotification.close()
+                }, 5000)
+                
+                browserNotification.onclick = () => {
+                  window.focus()
+                  browserNotification.close()
+                }
+              } catch (error) {
+                console.error('❌ Failed to show message browser notification:', error)
+              }
+            }
+            
             queryClient.invalidateQueries({ queryKey: notificationKeys.all })
           }
         }

@@ -115,6 +115,47 @@ export default function RealTimeNotificationService() {
         })
       }
 
+      // Show Chrome browser notification if permission is granted
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          const browserNotification = new Notification(notification.title, {
+            body: notification.message,
+            icon: '/favicon.ico', // You can use a better icon path
+            badge: '/favicon.ico',
+            tag: `dmhca-${notification.id}`, // Unique tag to prevent duplicates
+            requireInteraction: notification.type === 'task_overdue', // Keep overdue notifications visible
+            silent: false,
+            timestamp: Date.now()
+          })
+
+          // Auto-close notification after 5 seconds (except overdue tasks)
+          if (notification.type !== 'task_overdue') {
+            setTimeout(() => {
+              browserNotification.close()
+            }, 5000)
+          }
+
+          // Handle notification click
+          browserNotification.onclick = () => {
+            window.focus()
+            browserNotification.close()
+            
+            // You can add navigation logic here if needed
+            // For example: navigate to the specific task
+            console.log('🖱️ Browser notification clicked:', notification)
+          }
+
+          console.log('🔔 Chrome browser notification sent')
+        } catch (error) {
+          console.error('❌ Failed to show browser notification:', error)
+        }
+      } else if ('Notification' in window && Notification.permission === 'default') {
+        // Request permission for future notifications
+        Notification.requestPermission().then(permission => {
+          console.log('🔔 Browser notification permission requested:', permission)
+        })
+      }
+
       // Refresh the notification data
       queryClient.invalidateQueries({ queryKey: notificationKeys.all })
     }

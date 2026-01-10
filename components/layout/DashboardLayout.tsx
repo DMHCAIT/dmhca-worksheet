@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth/AuthProvider'
 import Sidebar from './Sidebar'
 import NotificationService from '@/components/ui/NotificationService'
 import RealTimeNotificationService from '@/components/ui/RealTimeNotificationService'
+import NotificationPermissionPrompt from '@/components/ui/NotificationPermissionPrompt'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -24,6 +25,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="min-h-screen bg-gray-50">
       <NotificationService />
       <RealTimeNotificationService />
+      <NotificationPermissionPrompt />
       <Sidebar />
       <div className="lg:pl-64">
         <main className="py-10">
