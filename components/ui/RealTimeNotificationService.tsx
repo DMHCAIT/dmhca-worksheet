@@ -38,6 +38,19 @@ export default function RealTimeNotificationService() {
           return
         }
 
+        // Validate token format before connecting
+        try {
+          const tokenParts = token.split('.')
+          if (tokenParts.length !== 3) {
+            console.error('❌ Invalid token format for SSE')
+            return
+          }
+        } catch (e) {
+          console.error('❌ Token validation failed:', e)
+          return
+        }
+
+        console.log('🔐 Attempting SSE connection with token')
         const eventSource = new EventSource(
           `${process.env.NEXT_PUBLIC_API_URL}/api/sse/stream?token=${encodeURIComponent(token)}`
         )
@@ -75,17 +88,28 @@ export default function RealTimeNotificationService() {
         eventSource.onerror = (error) => {
           console.error('❌ SSE connection error:', error)
           
-          // Attempt to reconnect after a delay
+          // Close the failing connection
+          if (eventSourceRef.current) {
+            eventSourceRef.current.close()
+            eventSourceRef.current = null
+          }
+          
+          // Attempt to reconnect after a delay, but with exponential backoff
           if (reconnectTimeoutRef.current) {
             clearTimeout(reconnectTimeoutRef.current)
           }
           
-          reconnectTimeoutRef.current = setTimeout(() => {
-            if (user) { // Only reconnect if user is still logged in
-              console.log('🔄 Attempting to reconnect SSE...')
-              connectSSE()
-            }
-          }, 5000)
+          // Only reconnect if user is still logged in
+          if (user) {
+            const retryDelay = Math.min(5000 * Math.pow(2, 0), 30000) // Start with 5s, max 30s
+            console.log(`🔄 Attempting to reconnect SSE in ${retryDelay}ms...`)
+            
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (user && localStorage.getItem('authToken')) {
+                connectSSE()
+              }
+            }, retryDelay)
+          }
         }
 
         eventSourceRef.current = eventSource

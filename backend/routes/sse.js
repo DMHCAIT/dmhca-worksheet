@@ -12,27 +12,39 @@ const sseAuth = async (req, res, next) => {
     const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
     
     if (!token) {
+      console.error('❌ SSE Auth: No token provided');
       return res.status(401).json({ error: 'No token provided' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('🔐 SSE Auth: Token decoded:', { userId: decoded.userId || decoded.id, email: decoded.email });
+    
+    // Handle both userId and id fields (for compatibility)
+    const userId = decoded.userId || decoded.id;
+    
+    if (!userId) {
+      console.error('❌ SSE Auth: No user ID in token');
+      return res.status(401).json({ error: 'Invalid token format' });
+    }
     
     // Get user from your user store/database
     const supabase = require('../config/supabase');
     const { data: user, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', decoded.id)
+      .eq('id', userId)
       .single();
 
     if (error || !user) {
+      console.error('❌ SSE Auth: User not found:', error?.message || 'No user data');
       return res.status(401).json({ error: 'User not found' });
     }
 
+    console.log('✅ SSE Auth successful for user:', user.email);
     req.user = user;
     next();
   } catch (error) {
-    console.error('SSE Auth error:', error);
+    console.error('❌ SSE Auth error:', error.message);
     return res.status(401).json({ error: 'Invalid token' });
   }
 };
