@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Bell, Check, CheckCheck, X } from 'lucide-react'
 import { useNotifications, useUnreadNotificationCount, useMarkNotificationRead, useMarkAllNotificationsRead } from '@/lib/hooks/useNotifications'
-import { Notification } from '@/types/entities'
+import type { Notification } from '@/types/entities'
 import toast from 'react-hot-toast'
 
 interface NotificationBellProps {
