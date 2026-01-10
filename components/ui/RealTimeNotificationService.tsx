@@ -124,8 +124,7 @@ export default function RealTimeNotificationService() {
             badge: '/favicon.ico',
             tag: `dmhca-${notification.id}`, // Unique tag to prevent duplicates
             requireInteraction: notification.type === 'task_overdue', // Keep overdue notifications visible
-            silent: false,
-            timestamp: Date.now()
+            silent: false
           })
 
           // Auto-close notification after 5 seconds (except overdue tasks)

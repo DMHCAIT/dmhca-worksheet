@@ -61,8 +61,7 @@ export default function NotificationService() {
                     badge: '/favicon.ico',
                     tag: `dmhca-poll-${notification.id}`,
                     requireInteraction: notification.type === 'task_overdue',
-                    silent: false,
-                    timestamp: Date.now()
+                    silent: false
                   })
 
                   // Auto-close notification after 5 seconds (except overdue tasks)
@@ -125,8 +124,7 @@ export default function NotificationService() {
                   badge: '/favicon.ico',
                   tag: 'dmhca-overdue-tasks',
                   requireInteraction: true, // Keep visible until clicked
-                  silent: false,
-                  timestamp: Date.now()
+                  silent: false
                 })
                 
                 browserNotification.onclick = () => {
@@ -176,8 +174,7 @@ export default function NotificationService() {
                   badge: '/favicon.ico',
                   tag: 'dmhca-new-messages',
                   requireInteraction: false,
-                  silent: false,
-                  timestamp: Date.now()
+                  silent: false
                 })
                 
                 // Auto-close after 5 seconds
